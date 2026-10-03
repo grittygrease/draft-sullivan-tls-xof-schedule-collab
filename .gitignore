@@ -1,0 +1,40 @@
+*.html
+*.pdf
+*.redxml
+*.swp
+*.txt
+*.upload
+*~
+.tags
+/*-[0-9][0-9].xml
+/.*.mk
+/.gems/
+/.idea/
+/.refcache
+/.venv/
+/.vscode/
+/lib
+/node_modules/
+/versioned/
+Gemfile.lock
+archive.json
+draft-sullivan-tls-xof-schedule.xml
+package-lock.json
+report.xml
+!requirements.txt
+
+# local tooling — the Go reference fork and the vector generators/verifiers
+/go-xof-fork/
+/vectors/*
+!/vectors/vectors.json
+!/vectors/appendix-test-vectors.md
+# The independent verifier is the only witness to the vectors that is not
+# the code that wrote them. The draft cites it (Test Vectors); it has to
+# be here for that citation to mean anything.
+!/vectors/pyverify/
+/vectors/pyverify/__pycache__/
+
+# Two full Go trees, kept for the HKDF baseline measurement. Not artifacts.
+/go-count-stock/
+/go-count-xof/
+__pycache__/
