@@ -13,3 +13,11 @@ else
 	    https://github.com/martinthomson/i-d-template $(LIBDIR)
 endif
 endif
+
+# Regenerate the Test Vectors appendix with the Go generator and the
+# independent Python verifier in tools/, and require both to match the
+# appendix value for value. Needs Go 1.24 or later and Python 3.
+vectors-check:
+	@python3 tools/pyverify/rfc9861_vectors.py
+	python3 tools/vectors_check.py
+.PHONY: vectors-check
