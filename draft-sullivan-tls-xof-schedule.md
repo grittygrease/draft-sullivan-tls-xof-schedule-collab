@@ -16,7 +16,6 @@ keyword:
   - duplex
   - sponge
   - cSHAKE
-  - KMAC
   - cipher suites
 
 author:
@@ -42,8 +41,7 @@ normative:
       DOI: 10.6028/NIST.FIPS.202
 
 informative:
-  RFC9257:
-  I-D.ietf-tls-hybrid-design:
+  RFC9954:
   SP800-185:
     target: https://csrc.nist.gov/pubs/sp/800/185/final
     title: "SHA-3 Derived Functions: cSHAKE, KMAC, TupleHash, and\
@@ -117,12 +115,6 @@ informative:
     author:
       - ins: M. Hamburg
     date: 2017
-  DISCO:
-    target: https://eprint.iacr.org/2019/180
-    title: "Disco: Modern Session Encryption"
-    author:
-      - ins: D. Wong
-    date: 2019
   TLS13KS:
     target: https://eprint.iacr.org/2021/467
     title: "Key-Schedule Security for the TLS 1.3 Standard"
@@ -173,17 +165,6 @@ informative:
     seriesinfo:
       "FSE": "2015"
       DOI: 10.1007/978-3-662-48116-5_18
-  FSKD:
-    target: https://doi.org/10.1007/978-3-319-70697-9_21
-    title: "Full-State Keyed Duplex With Built-In Multi-User Support"
-    author:
-      - ins: J. Daemen
-      - ins: B. Mennink
-      - ins: G. Van Assche
-    date: 2017
-    seriesinfo:
-      "ASIACRYPT": "2017"
-      DOI: 10.1007/978-3-319-70697-9_21
   BINDEL:
     target: https://eprint.iacr.org/2018/903
     title: "Hybrid Key Encapsulation Mechanisms and Authenticated Key
@@ -216,16 +197,16 @@ the reduced-round TurboSHAKE256.  This document updates RFC 9258.
 # Introduction
 
 In TLS 1.3 {{RFC9846}}, every cipher suite runs its key schedule on HKDF
-over the suite's hash.  This document defines an extension by which a
-connection negotiates a key-derivation function of its own:  an
-XOF-based KDF whose key schedule runs on a single Keccak permutation and
-replaces HKDF across every derivation, the Finished and binder MACs, and
-the transcript hash.  The permutation is the one a deployment already
-carries when it uses SHA-3, ML-KEM, or ML-DSA.  When no KDF is
-negotiated, the cipher suite's hash names HKDF and TLS 1.3's own
-schedule runs, exactly as today.  Instantiating HKDF with a SHA-3 hash
-would remove SHA-2 without changing how the schedule works.  This
-document changes the schedule itself, not the hash.
+over the suite's hash.  This document defines an extension that
+negotiates an XOF-based KDF for the connection.  Its key schedule runs
+on a single Keccak permutation and replaces HKDF across every
+derivation, the Finished and binder MACs, and the transcript hash.  The
+permutation is the one a deployment already carries when it uses SHA-3,
+ML-KEM, or ML-DSA.  When no KDF is negotiated, the cipher suite's hash
+names HKDF and TLS 1.3's own schedule runs, exactly as today.
+Instantiating HKDF with a SHA-3 hash would remove SHA-2 without changing
+how the schedule works.  This document changes the schedule itself, not
+the hash.
 
 TLS 1.3 already negotiates groups, KEMs, signature schemes, PSKs, and
 AEAD algorithms.  This document extends that agility to the key schedule
@@ -236,6 +217,7 @@ negotiates the KDF beside it:
 ~~~~
 connection = cipher suite (TLS 1.3) + KDF (this document)
 ~~~~
+{: #connection-components title="Cipher Suite and KDF"}
 
 A KDF ({{schedule-profiles}}) defines every key-schedule computation the
 connection uses:  the transcript hash, the secret and key derivations,
@@ -245,52 +227,52 @@ extension of {{cipher-suites}}, independently of the cipher suite.  A
 connection that negotiates no KDF is a TLS 1.3 connection:  absence is
 the default, and TLS 1.3's own schedule needs no identifier of its own.
 
-Both profiles express the schedule as one deck function:  an
-extendable-output function that absorbs the schedule's inputs as
+Each KDF defined here is a profile of the same deck function.  This
+extendable-output function absorbs the schedule's inputs as
 length-framed strings and squeezes each derived value from the
 accumulated sequence.  It is defined once for both profiles in
 {{deck-schedule}}, and each selects a different permutation for it:
 TLS13_TURBOSHAKE256 ({{turboshake-profile}}) uses the 12-round
 TurboSHAKE256 {{RFC9861}}, and TLS13_SHAKE256 ({{shake-profile}}) uses
 the 24-round SHAKE256 {{FIPS202}}.  Finished and PSK binder values use
-one MAC ({{mac-op}}).  The Encrypted Client Hello acceptance value is a
-Derive ({{ech-generic}}).
+one MAC ({{mac-op}}).  The Encrypted Client Hello acceptance value is
+produced by the deck's output operation, Derive ({{ech-generic}}).
 
 ## Design Goals
 
 A KDF turns the whole derivation surface of a connection into one named,
 testable object.  Every value comes from one permutation, every
-derivation is injectively framed ({{deck-interface}}), and every one has
-a byte-exact test vector ({{test-vectors}}).  Neither KDF uses SHA-2,
-HMAC, or HKDF in any role, and the correspondence with TLS 1.3 can be
-audited shape by shape ({{shapes}}).
+derivation is injectively framed ({{deck-interface}}), and
+{{test-vectors}} gives byte-exact values for both profiles.  Neither KDF
+uses SHA-2, HMAC, or HKDF in any role, and the correspondence with TLS
+1.3 can be audited shape by shape ({{shapes}}).
 
 The alternative is to keep TLS 1.3's HKDF schedule and give it a SHA-3
 hash.  That inherits TLS 1.3's analysis directly, and {{fips-schedule}}
 records a variant close to it.
 
 The deck costs fewer permutation calls than that alternative.  HKDF is
-built on HMAC, which runs every derivation as two nested hash calls,
-overhead that exists only to key a hash not built for keying.  A keyed
-sponge needs no such wrapper:  it produces each value in one squeeze,
-with no separate extract step between stages.
+built on HMAC, and every HMAC call nests two hash calls, overhead that
+exists only to key a hash not built for keying.  A keyed sponge needs
+no such wrapper:  it produces each Derive output in one squeeze, with no
+separate extract step between stages.
 
-Over the representative handshake of {{comparison}}, the deck costs 39
-Keccak permutation calls against 156 for a hash-only HKDF-SHA3-256 over
-the same permutation ({{permutation-count}}).  That factor follows from
-HKDF's definition over HMAC, which runs every operation as two nested
-hash calls, so no HKDF instantiation removes it.
+Over the representative handshake of {{comparison}}, the deck costs 29
+Keccak permutation calls against 120 for a hash-only HKDF-SHA3-256 over
+the same permutation ({{permutation-count}}).  HMAC accounts for four
+permutation calls in every HKDF operation, two for each of its nested
+hashes, where a Derive here costs one or two ({{permutation-method}}).
 
 ## Scope
 
 This document does not define a new version of TLS, and defines no
-cipher suites.  It adds one extension and changes nothing else:  the
-state machine, the record layer, and every wire structure other than
-that extension are TLS 1.3's, and the cipher suites, the AEAD
-algorithms and their per-record nonce construction are TLS 1.3's.
+cipher suites.  It adds one extension.  The state machine, record layer,
+all other wire structures, cipher suites, AEAD algorithms, and
+per-record nonce construction remain those of TLS 1.3.
 
-A KDF governs only the key schedule.  Negotiating one does not by itself
-make a connection free of SHA-2:  certificate-based authentication is
+A KDF governs only the key schedule and the transcript hash
+({{profile-governs}}).  Negotiating one does not by itself make a
+connection free of SHA-2:  certificate-based authentication is
 negotiated separately and commonly relies on SHA-2.  A deployment that
 requires a fully SHA-2-free connection must additionally restrict itself
 to SHA-2-free signature schemes and certificate chains, or use PSK-only
@@ -300,18 +282,18 @@ governs nothing in the key schedule ({{profile-governs}}).
 
 ## Deck Functions {#deck-functions}
 
-A key schedule is a derivation tree, and a deck function
-({{related-constructions}}) expresses one directly:  absorb a stage's
-inputs into a running accumulator, derive a leaf from a clone at each
-branch, and ratchet the accumulator itself into the next stage.  One XOF
-does the work HKDF splits between Extract, at the stage boundaries, and
-Expand-Label, at the leaves.
+A key schedule is a derivation tree.  A deck function
+({{deck-interface}}) expresses that tree directly:  absorb a stage's
+inputs into a running accumulator, derive each leaf from a clone, and
+ratchet the accumulator into the next stage.  One XOF does the work HKDF
+splits between Extract, at the stage boundaries, and Expand-Label, at
+the leaves.
 
 The construction takes no key:  a secret is an ordinary framed input,
-and the security rests on the XOF's own bound, not on a keyed-primitive
-assumption ({{cryptographic-analysis}}).  The operations named here,
-Init, Absorb, Derive, and Ratchet, are defined normatively in
-{{deck-schedule}}.
+and each derivation's bound is the XOF's own, not a keyed-primitive
+assumption, given the premises in {{cryptographic-analysis}}.  The
+operations named here, Init, Absorb, Derive, and Ratchet, are defined
+normatively in {{deck-schedule}}.
 
 # Conventions and Definitions {#conventions}
 
@@ -334,10 +316,8 @@ selected_cipher_suite:
   integer.  uint16(selected_cipher_suite) yields its two-octet TLS 1.3
   encoding.
 
-recorded cipher suite:
-: For a resumption PSK, the cipher suite of the ticket.  An imported PSK
-  records no cipher suite:  it is bound to a KDF, not a suite
-  ({{psk-importer}}).
+associated cipher suite:
+: The cipher suite associated with a PSK ({{governing-profile}}).
 
 trunk (stage trunk):
 : The running deck accumulator for a schedule stage (E, H, or T),
@@ -345,7 +325,7 @@ trunk (stage trunk):
   stage's leaf outputs, and is ratcheted at the stage boundary to
   an internal residue that seeds the next stage's trunk.
 
-DHE:
+shared_secret:
 : The asymmetric shared secret, computed as in
   {{Section 7.4 of RFC9846}}.
 
@@ -387,15 +367,15 @@ empty value.
 
 The transcript hash is an unkeyed 64-octet hash defined by the
 negotiated KDF ({{turboshake-profile}}, {{shake-profile}}).
-TranscriptHash is computed over the handshake transcript as in
-{{Section 4.1 of RFC9846}}:  message type and length fields are
-included, and record-layer framing is excluded.  TranscriptHash accepts
-any octet string.  The TLS 1.3 rules define only how the handshake
-transcript is serialized before hashing, and the same function is
-applied to non-transcript inputs such as exporter labels and imported
-PSK identities.  For a HelloRetryRequest, the synthetic-message
-construction in {{Section 4.1 of RFC9846}} is retained, substituting
-TranscriptHash for Hash.
+TranscriptHash is computed over the handshake transcript as in {{Section
+4.1 of RFC9846}}:  message type and length fields are included, and
+record-layer framing is excluded.  TranscriptHash accepts any octet
+string.  The TLS 1.3 rules define only how the handshake transcript is
+serialized before hashing, and the same function is applied to
+non-transcript inputs such as exporter contexts and imported PSK
+identities.  For a HelloRetryRequest, the synthetic-message construction
+in {{Section 4.1 of RFC9846}} is retained, substituting TranscriptHash
+for Hash.
 
 In both profiles of this document, TranscriptHash takes no cipher suite
 input, so a client can compute its checkpoints before the ServerHello.
@@ -429,9 +409,9 @@ TH_CF:
 : TranscriptHash(ClientHello up to and including the client
   Finished message).
 
-For a Finished MAC computed by either peer, the covered transcript
-is taken up to but not including the Finished message being
-computed, consistent with {{Section 4.5.3 of RFC9846}}.
+For a Finished MAC computed by either peer, the covered transcript is
+taken up to but not including the Finished message being computed,
+consistent with {{Section 4.5.3 of RFC9846}}.
 
 # Key-Derivation Functions {#schedule-profiles}
 
@@ -459,9 +439,9 @@ cipher suite.  A KDF specifies:
 - the domain-separation and input-framing rules its derivations
   use.
 
-The suite continues to select the AEAD, as in
-{{Section 4.2 of RFC9846}}.  Future specifications may define additional
-KDFs by registering a TLS KDF Identifier ({{iana-considerations}}) whose
+The suite continues to select the AEAD, as in {{Section 4.2 of
+RFC9846}}.  Future specifications may define additional KDFs by
+registering a TLS KDF Identifier ({{iana-considerations}}) whose
 definition covers every computation listed above.
 
 Every derivation of a KDF MUST bind at least the following into the
@@ -492,21 +472,24 @@ role SHA-256 or SHA-384 plays in {{Section 7.1 of RFC9846}}.  Its XOF
 runs every derivation of the schedule ({{deck-schedule}}).
 
 A PSK binder is computed before the server selects a cipher suite, and
-verified under the KDF the PSK is bound to.  As in
-{{Section 4.3.11 of RFC9846}}, a server MUST verify the binder of any
-PSK it selects.  The binder is keyed by a secret derived under that KDF
-({{finished-and-binder-mac}}), so a PSK established under one KDF cannot
-key another and pass verification.
+verified under the KDF the PSK is bound to.  As in {{Section 4.3.11 of
+RFC9846}}, a server MUST verify the binder of any PSK it selects.  The
+binder is keyed by a secret derived under that KDF
+({{finished-and-binder-mac}}), so a binder computed under one KDF
+verifies under another only by chance.
 
 A server MUST NOT select a PSK unless the KDF of the connection it forms
 is compatible with the KDF associated with the PSK.  Two KDFs are
 compatible only if they are the same TLS KDF Identifier.  This document
 defines no broader compatibility.  This rule is the analogue of RFC
 9846, Section 4.3.11, which requires a resumption to share the PSK's
-hash:  under this document the KDF is the hash ({{profile-governs}}).
+hash:  under this document the KDF is the hash ({{profile-governs}}).  A
+client MUST abort the handshake with an illegal_parameter alert if the
+server selects a PSK whose KDF is incompatible with the selected KDF, as
+that section requires of the hash.
 
-Otherwise a 1-RTT resumption follows TLS 1.3.  The selected cipher
-suite need not equal the PSK's recorded cipher suite.  A resumption MAY
+Otherwise a 1-RTT resumption follows TLS 1.3.  The selected cipher suite
+need not equal the PSK's associated cipher suite.  A resumption MAY
 change the AEAD as long as the KDFs are compatible.  The selected suite
 appears in the ServerHello and therefore in the transcript, which
 separates every handshake and application output as in TLS 1.3
@@ -518,7 +501,7 @@ KDF is incompatible with the KDF implied by the HelloRetryRequest, and
 MUST recompute binders as required by {{Section 4.3.11.2 of RFC9846}}.
 
 For 0-RTT, the server MUST require the selected cipher suite to equal
-the PSK's recorded cipher suite ({{zero-rtt}}).  This is TLS 1.3's own
+the PSK's associated cipher suite ({{zero-rtt}}).  This is TLS 1.3's own
 0-RTT rule.
 
 A PSK that is offered but not selected leaves no trace in the schedule.
@@ -528,10 +511,15 @@ any PSK-keyed schedule state it built for the binder or for early data,
 along with its outputs, and begins the schedule again with the empty
 PSK, applying the destruction rules of its KDF.
 
-Implementations MUST associate every PSK and session ticket with the
-KDF, and the cipher suite, under which it was established:  the KDF to
-select a compatible PSK and compute its binder, the cipher suite for the
-0-RTT equality check and the Nk and Nn of any early-data keys.
+Implementations MUST associate every PSK and session ticket with its KDF
+to select a compatible PSK and compute its binder.  For an imported PSK,
+this is its target_kdf ({{psk-importer}}).  Implementations MUST also
+retain the PSK's associated early-data parameters (cipher suite, ALPN,
+and early-data permission).  As in {{Section 4.3.10 of RFC9846}}, these
+are provisioned along with the key for external PSKs, including imported
+PSKs, and negotiated when the PSK was established for resumption PSKs
+and session tickets.  An imported PSK without provisioned early-data
+parameters is not eligible for early data.
 
 # Keyed Derivations {#derived-outputs}
 
@@ -539,11 +527,10 @@ Every derivation in this document that is keyed by a retained
 octet-string secret, rather than by a live stage of a profile's
 schedule, is a deck session rooted at that secret ({{deck-schedule}}),
 specified once for both profiles in {{expand-op}} since the deck is
-identical up to its permutation.  MAC computes the Finished and PSK
-binder tags.  {{mac-op}} defines it once as a byte layout over the
-profile's permutation, and each profile fixes that permutation
-({{turboshake-mac}}, {{shake-mac}}).  Stage schedules themselves remain
-profile-specific ({{turboshake-profile}}, {{shake-profile}}).
+identical up to its permutation.  MAC, which computes the Finished and
+PSK binder tags, is one such derivation ({{mac-op}}).  Stage schedules
+themselves remain profile-specific ({{turboshake-profile}},
+{{shake-profile}}).
 
 ## Deriving from a Retained Secret {#expand-op}
 
@@ -551,111 +538,100 @@ A value keyed by a retained octet-string secret is a Derive
 ({{deck-interface}}) whose deck is seeded with that secret rather than
 run as a live stage trunk.  The seed is the secret itself: Init(secret),
 the same way a ratchet seeds the next stage with its residue.  Derive
-then adds the label, the context under the "context" tag if any, and
-the "out" length:
+then adds the context under the "ctx_" tag if any, the label, and the
+output length under the "out_" tag:
 
 ~~~~
-D     = Init(secret)                # Init frames schedule_label
+D     = Init(secret)                # Init frames schedule_label, "seed"
 value = Derive(D, label, [context], [L])
 ~~~~
 
-label is an ASCII label, context is an octet string, and L is the output
-length in octets.  Every item is length-framed by the deck
-({{domain-separation}}), so distinct derivations map to distinct deck
-inputs.  When context is empty it is omitted rather than framed as an
-empty value.  The frame of the following "out" tag delimits the absence,
-so an omitted context and an empty one never yield the same input.  L
-never exceeds 65535 octets ({{schedule-profiles}}).  Such a Derive is
-the analogue of TLS 1.3's HKDF-Expand-Label and carries its labels
-where TLS 1.3 has a counterpart.
+label is one of this document's 3-octet labels ({{labels}}), context is
+an octet string, and L is the output length in octets.  Every item is
+length-framed by the deck ({{domain-separation}}), so distinct
+derivations map to distinct deck inputs.  An empty context is omitted
+rather than framed as an empty value, and omission is its canonical
+encoding.  It differs from an explicitly framed empty value, because
+after an omitted context the next item is the label, not frame("ctx_").
+L never exceeds 65535 octets ({{schedule-profiles}}).  Such a Derive is
+the analogue of TLS 1.3's HKDF-Expand-Label, and {{labels}} gives the
+TLS 1.3 label that each of its labels replaces.
 
 The following retained-secret derivations are instances of this shape,
-each fixing the base secret, label, context, and output length.
-The exporter ({{exporters-generic}}) is a further instance whose context
-is a composite of two transcript hashes, and the ECH acceptance
-confirmations ({{ech-generic}}) are instances whose context is a single
-one.  Every derivation of this shape carries its context under the
-"context" tag, including one whose context is itself a transcript hash.
+each fixing the base secret, label, context, and output length.  The
+exporter ({{exporters-generic}}) uses two such derivations, with the raw
+exporter label as the first context and the context hash as the second.
+The ECH acceptance confirmations ({{ech-generic}}) take a transcript
+hash as context, and MAC ({{mac-op}}) takes the message it
+authenticates.  Every derivation of this shape carries its context under
+the "ctx_" tag, including one whose context is itself a transcript hash.
 
-| Output | Base secret | Label | Context | Length |
-|--------|-------------|-------|---------|--------|
-| record keys ({{record-keys-generic}}) | a traffic secret | "key" | none | Nk + Nn |
-| next traffic secret ({{key-update-generic}}) | current traffic secret | "traffic upd" | none | SecretLen |
-| resumption_psk | res_master | "resumption" | ticket_nonce | SecretLen |
-| ipsk ({{import-derivation}}) | epsk | "derived psk" | see below | SecretLen |
+1. Record keys ({{record-keys-generic}}): base secret, a traffic secret;
+   label, "key"; no context; length, Nk + Nn.
 
-The ipsk row's context is TranscriptHash(ImportedIdentity), the
-transcript-hash reduction of ImportedIdentity defined in
-{{import-derivation}}.
+2. Next traffic secret ({{key-update-generic}}): base secret, the
+   current traffic secret; label, "upd"; no context; length, SecretLen.
+
+3. resumption_psk: base secret, resumption_secret; label, "rsp";
+   context, ticket_nonce; length, SecretLen.
+
+4. ipsk ({{import-derivation}}): base secret, epsk; label, "ipk";
+   context, TranscriptHash(ImportedIdentity), the transcript-hash
+   reduction defined in {{import-derivation}}; length, SecretLen.
 
 ## MAC {#mac-op}
 
 MAC(key, message, L) computes every tag in this document:  the PSK
-binder and both Finished values.  Both profiles use it.
-
-MAC builds the octet string mac_input from a key, a positional tuple X,
-and a fixed customization string S, then applies the profile's
-permutation to mac_input as a sponge, with a 136-octet rate, a 512-bit
-capacity, and domain-separation byte 0x04 appended in the manner of
-TurboSHAKE {{RFC9861}}, squeezing 8 * L bits:
+binder and both Finished values.  It is a Derive over a deck seeded with
+the key ({{expand-op}}), with the label "mac" and the message as its
+context:
 
 ~~~~
-K = key
-X = frame(schedule_label) || frame(message)
-S = "TLS 1.3 MAC"
-mac_input = bytepad(encode_string("KMAC") || encode_string(S), 136)
-            || bytepad(encode_string(K), 136)
-            || X || right_encode(8 * L)
+MAC(key, message, L) = Derive(Init(key), "mac", message, L)
 ~~~~
 
-The four length encoders are byte-oriented.  For a non-negative integer
-n, let b be the number of octets in its minimal big-endian form, taking
-b to be 1 when n is 0.
+Every MAC of this document takes a 64-octet key and a 64-octet
+transcript hash as its message, so its input to DF ({{deck-interface}})
+is these 167 octets, with the key and the message each starting on an
+8-octet boundary ({{labels}}):
 
-left_encode(n):
-: the single octet b followed by n as b octets.
+~~~~
+offset
+     0  0x0006 || "tls13 "    frame(schedule_label), from Init
+     8  0x0004 || "seed"      frame("seed")
+    14  0x0040 || key         frame(key), at offset 16
+    80  0x0004 || "ctx_"      frame("ctx_")
+    86  0x0040 || message     frame(message), at offset 88
+   152  0x0003 || "mac"       frame("mac"), the label
+   157  0x0004 || "out_"      frame("out_")
+   163  0x0002 || uint16(L)   frame(uint16(L))
+~~~~
 
-right_encode(n):
-: n as b octets followed by the single octet b.
+No other derivation of this document uses the label "mac", so a MAC
+input is never the input of another derivation ({{domain-separation}}).
+The output length is bound by the "out_" item as in every Derive, so
+tags of different lengths are computed over different inputs.  MAC is
+the analogue of TLS 1.3's HMAC-based Finished and binder MACs, and like
+them it is keyed by a dedicated key that keys nothing else
+({{finished-and-binder-mac}}).  Both Finished values are computed the
+same way, each over a different key and a different message.  L never
+exceeds 65535 octets ({{schedule-profiles}}).
 
-encode_string(s):
-: for an octet string s of len(s) octets, left_encode(8 * len(s))
-  followed by s.
-
-bytepad(s, w):
-: left_encode(w) followed by s, then zero octets until the length is a
-  multiple of w.
-
-The input X is positional.  Unlike the deck's Absorb and Derive inputs,
-which pair each value with a frame(tag), the MAC fields carry no
-per-item tags.  Their fixed order and length-framing parse them
-unambiguously, and S is the same in every invocation of either profile.
-
-The two profiles fix the permutation ({{turboshake-mac}},
-{{shake-mac}}), and each profile's section names the construction its
-permutation makes of this layout.  MAC is defined by the layout above,
-not by reference to KMAC.
-
-Because right_encode(8 * L) binds the output length into mac_input
-before the permutation runs, different output lengths yield distinct MAC
-inputs.  MAC is the analogue of TLS 1.3's HMAC-based Finished and binder
-MACs.  It carries no label:  distinct invocations yield distinct values
-because the key and the message differ.  Both Finished values are
-computed the same way, each over a different key and a different message
-({{finished-and-binder-mac}}).
-L never exceeds 65535 octets ({{schedule-profiles}}).
+MAC uses the profile's DF and nothing else, so it needs no primitive
+beyond the SHAKE256 {{FIPS202}} or TurboSHAKE256 {{RFC9861}} that
+computes every other derivation and the transcript hash.
 
 ## Record Keys {#record-keys-generic}
 
-Record keys are the "key" derivation of {{expand-op}}: a traffic secret
+Record keys are the "key" derivation of {{expand-op}}:  a traffic secret
 derived in one call to key_block, so a retained traffic secret suffices
 to re-derive its keys, as in TLS 1.3.  For early-data keys, derived
 before the ServerHello, Nk and Nn are those of the offered PSK's
-recorded cipher suite.  For every other traffic secret they are those of
-selected_cipher_suite.
+associated cipher suite.  For every other traffic secret they are those
+of selected_cipher_suite.
 
-key_block is that derivation:  the traffic secret as the seed, the
-label "key", no context, and output length Nk + Nn.
+key_block is that derivation:  the traffic secret as the seed, the label
+"key", no context, and output length Nk + Nn.
 
 ~~~~
 # no context, so the third argument is the output length
@@ -673,27 +649,27 @@ record format, and AEAD additional data are unchanged from TLS 1.3.
 ## Key Update {#key-update-generic}
 
 A key update derives the next traffic-secret generation,
-app_traffic_secret_{N+1}, from the current one by the "traffic upd"
-derivation of {{expand-op}}, with record keys re-derived from the new
-secret as above.  An implementation MUST NOT derive generation N+1 from
-anything other than generation N, in particular not from a retained
-stage accumulator or a counter:  that rule determines the derived value
-and so is an interoperability requirement.  Each generation is also an
-erasure boundary, and the previous secret, its keys, and any schedule
-state derived from them are destroyed once the new generation is
-installed ({{erasure-boundaries}}).
+app_traffic_secret_{N+1}, from the current one by the "upd" derivation
+of {{expand-op}}, with record keys re-derived from the new secret as
+above.  An implementation MUST NOT derive generation N+1 from anything
+other than generation N, in particular not from a retained stage
+accumulator or a counter:  that rule determines the derived value and so
+is an interoperability requirement.  Each generation is also an erasure
+boundary, and the previous secret, its keys, and any schedule state
+derived from them are destroyed once the new generation is installed
+({{erasure-boundaries}}).
 
 ## Finished and PSK Binder MACs {#finished-and-binder-mac}
 
 Finished and PSK binder verify_data are computed under a dedicated MAC
-key, derived from a stage or traffic secret ({{expand-op}}), rather
-than by MACing that secret directly.  This matches
-{{Section 4.5.3 of RFC9846}}:  finished_key and binder_key take the
-roles of TLS 1.3's identically named intermediates, and MAC takes the
-role of TLS 1.3's HMAC.
+key, derived from a stage or traffic secret ({{expand-op}}), rather than
+by MACing that secret directly.  This matches {{Section 4.5.3 of
+RFC9846}}:  finished_key and binder_key take the roles of TLS 1.3's
+identically named intermediates, and MAC takes the role of TLS 1.3's
+HMAC.
 
 ~~~~
-finished_key = Derive(Init(base_key), "finished")
+finished_key = Derive(Init(base_key), "fin")
 verify_data  = MAC(finished_key, th, FLen)
 ~~~~
 
@@ -701,45 +677,46 @@ For a Finished message, base_key is the base key that message takes in
 the authentication-input table of {{Section 4.5 of RFC9846}}:  the
 sender's handshake traffic secret for a Finished sent during the
 handshake, and the sender's current application traffic secret for a
-post-handshake authentication Finished.  The label is "finished", and
-th covers the transcript up to but not including the Finished message
-being computed.  For a PSK binder, the dedicated key is
-derived in two steps, as TLS 1.3 derives binder_key in Section 7.1 and
-then finished_key from it in Section 4.3.11.2, via Section 4.5.3:
+post-handshake authentication Finished.  The label is "fin", and th
+covers the transcript up to but not including the Finished message being
+computed.  For a PSK binder, the dedicated key is derived in two steps,
+as TLS 1.3 derives binder_key in Section 7.1 and then finished_key from
+it in Section 4.3.11.2, via Section 4.5.3:
 
 ~~~~
-binder_key   = Derive(E, ext_or_res_label)
-finished_key = Derive(Init(binder_key), "finished")
+binder_key   = Derive(E, binder_label)
+finished_key = Derive(Init(binder_key), "fin")
 verify_data  = MAC(finished_key, TH_CH0, FLen)
 ~~~~
 
 E is the live early trunk of the schedule keyed by that PSK, before its
 ratchet ({{key-schedule}}).  binder_key is a Derive directly on E, a
-third early leaf alongside c_e_traffic and e_exp_master, so the early
-trunk is the analogue of TLS 1.3's Early Secret from which Section 7.1
-derives binder_key.  ext_or_res_label is "ext binder" for an external
-PSK and "res binder" for a resumption PSK.
+third early leaf alongside c_e_traffic and early_exporter_secret, so the
+early trunk is the analogue of TLS 1.3's Early Secret from which
+{{Section 7.1 of RFC9846}} derives binder_key.  binder_label is "ebk"
+for a non-imported external PSK, replacing "ext binder", "ibk" for an
+imported PSK, replacing "imp binder" from {{Section 5.2 of RFC9258}},
+and "rbk" for a resumption PSK, replacing "res binder".
 
-finished_key is derived under "finished" for both a Finished and a
-binder, and the two are already separated one step up by their base
-secret, a handshake traffic secret against binder_key.  Both
-finished_key and binder_key are 64 octets, the length of every stage and
-traffic secret in both profiles (SecretLen, {{turboshake-profile}},
-{{shake-profile}}), matching TLS 1.3's use of Hash.length for the same
-intermediates.  Binder verification follows {{governing-profile}}.
+finished_key is derived under "fin" for both a Finished and a binder,
+and the two are already separated one step up by their base secret, a
+traffic secret against binder_key.  Both finished_key and binder_key
+are 64 octets, the length of every stage and traffic secret in both
+profiles (SecretLen, {{turboshake-profile}}, {{shake-profile}}),
+matching TLS 1.3's use of Hash.length for the same intermediates.
+Binder verification follows {{governing-profile}}.
 
 {{comparison}} counts every finished_key and binder_key derivation of a
 representative full handshake against the corresponding TLS 1.3
 HKDF-Expand-Label calls.
 
-finished_key and binder_key are dedicated MAC keys, and a Finished MAC
-key shares its base key, the sender's handshake traffic secret, with
-that sender's record keys ({{record-keys-generic}}).  Their separation
-from the record keys follows from domain separation
-({{domain-separation}}).  Sharing the base secret reproduces TLS 1.3's
-structure and its exposure exactly ({{cryptographic-analysis}});  this
-document establishes no separate joint-security argument for that
-sharing ({{open-analysis}}).
+Each finished_key is a dedicated MAC key, and a Finished MAC key shares
+its base key, the sender's traffic secret, with that sender's record
+keys ({{record-keys-generic}}).  Their separation from the record keys
+follows from domain separation ({{domain-separation}}).  Sharing the
+base secret reproduces TLS 1.3's structure and its exposure exactly
+({{cryptographic-analysis}});  this document establishes no separate
+joint-security argument for that sharing ({{open-analysis}}).
 
 Binders are computed before the ServerHello.  This is possible in both
 profiles because the early trunk binds no cipher suite:  the client
@@ -748,21 +725,32 @@ either profile ({{deck-schedule}}).
 
 ## Exporters {#exporters-generic}
 
-Exporters are keyed by the retained exporter master secret:
+Exporters use two retained-secret derivations, following the shape of
+{{Section 7.5 of RFC9846}}:
 
 ~~~~
 TLS-Exporter(label, context, length):
-    # the context argument is itself a framed pair
-    return Derive(Init(exp_master), "exporter",
-                  frame(TranscriptHash(label))
-                  || frame(TranscriptHash(context)), length)
+    exporter_label_secret = Derive(Init(exporter_secret), "exl",
+                                   label, SecretLen)
+    return Derive(Init(exporter_label_secret), "exp",
+                  TranscriptHash(context), length)
 ~~~~
 
-The early exporter is the same construction keyed by e_exp_master.
-Hashing the label and the context bounds their lengths, so the composite
-context is a fixed-width pair and a long context cannot displace the
-label.  An implementation MUST reject a TLS-Exporter request for more
-than 65535 octets ({{schedule-profiles}}).
+The early exporter is the same construction keyed by
+early_exporter_secret.  The raw label is the first Derive's context and
+is framed under "ctx_" ({{expand-op}}).  An implementation MUST reject a
+TLS-Exporter request whose label exceeds the 65535-octet frame limit,
+rather than reduce its length modulo 65536.
+
+The intermediate lets an implementation that knows all its exporter
+labels derive their label secrets and then erase exporter_secret, as
+{{Appendix F.1.4 of RFC9846}} recommends.
+
+Framing the raw label separates inputs to the first Derive without
+relying on TranscriptHash collision resistance for that separation.  The
+second Derive takes the context hash because the context has unbounded
+length.  An implementation MUST reject a TLS-Exporter request for more
+than 65535 octets of output ({{schedule-profiles}}).
 
 ## ECH Acceptance Confirmations {#ech-generic}
 
@@ -773,36 +761,39 @@ are:
 D = Init(ClientHelloInner.random)
 
 accept_confirmation =
-    Derive(D, "ech accept confirmation",
+    Derive(D, "eca",
            TranscriptHash(ech_conf_messages), 8)
 
 hrr_accept_confirmation =
-    Derive(D, "hrr ech accept confirmation",
+    Derive(D, "hca",
            TranscriptHash(hrr_ech_conf_messages), 8)
 ~~~~
 
 replacing the HKDF-Extract and HKDF-Expand-Label computations of
-{{RFC9849}}, with ech_conf_messages and hrr_ech_conf_messages the
-handshake message ranges that document identifies for each
-confirmation, per {{Section 4.1 of RFC9846}}.
-TranscriptHash(ech_conf_messages) is RFC 9849's transcript_ech_conf, the
-same single transcript-hash operation, applied once.
+{{RFC9849}} and its labels "ech accept confirmation" and "hrr ech accept
+confirmation", with ech_conf_messages and hrr_ech_conf_messages the
+handshake message ranges that document identifies for each confirmation,
+per {{Section 4.1 of RFC9846}}.  TranscriptHash(ech_conf_messages) is
+RFC 9849's transcript_ech_conf, the same single transcript-hash
+operation, applied once.
 
 Keying the confirmation on ClientHelloInner.random alone matches
 {{RFC9849}}, whose confirmation key is HKDF-Extract(0,
 ClientHelloInner.random), with no handshake secret mixed in.  This
 document seeds a deck with that same value and takes one Derive, in
-place of RFC 9849's extract-then-expand, so the acceptance signal
-keeps its RFC 9849 properties.  Only a server that decrypted the
-inner ClientHello, and so learned ClientHelloInner.random, can
-compute the confirmation, and no network attacker can forge it.
-Because the confirmation transcript covers the ServerHello, it
-binds its handshake and does not transplant to another.
+place of RFC 9849's extract-then-expand, so the acceptance signal keeps
+its RFC 9849 properties.  Only a server that holds
+ClientHelloInner.random can compute the confirmation.  A network
+attacker without that value is left to guess the 8 octets, succeeding
+with probability 2^-64 if the Derive output is pseudorandom.  Because
+each confirmation's transcript covers the message that carries it, the
+ServerHello or the HelloRetryRequest, it binds its handshake and does
+not transplant to another.
 
 ## PSK Import Derivation {#import-derivation}
 
 An external PSK is imported per target KDF ({{psk-importer}}).  For
-every KDF of this document, ipsk is the "derived psk" derivation of
+every KDF of this document, ipsk is the "ipk" derivation of
 {{expand-op}}, keyed by epsk with TranscriptHash(ImportedIdentity) as
 context, with target_kdf as the KDF.  This follows the shape of the RFC
 9258 derivation, with the entire serialized ImportedIdentity reduced by
@@ -846,9 +837,13 @@ the key schedule in {{Section 7.1 of RFC9846}}, HKDF over the negotiated
 cipher suite's hash.  That is HKDF_SHA256 or HKDF_SHA384 as the suite's
 hash determines, so TLS 1.3's own schedule needs no value of its own
 here and an endpoint of this document interoperates with TLS 1.3
-unchanged.  A client that requires an alternative schedule signals it by
-offering only KDFs of this document ({{downgrade-resistance}}).  Because
-absence is the sole signal for the TLS 1.3 schedule, a
+unchanged.
+
+A client that requires an alternative schedule MUST abort with a
+handshake_failure alert if the ServerHello omits the extension
+({{downgrade-resistance}}).  The offered list does not signal whether
+the client requires an alternative schedule or permits fallback.
+Because absence is the sole signal for the TLS 1.3 schedule, a
 ScheduleProfileList MUST NOT include HKDF_SHA256 or HKDF_SHA384, the
 other values of the RFC 9258 registry.  A server that receives either
 MUST treat it as if that KDF were not offered, and MUST NOT select it.
@@ -856,18 +851,26 @@ MUST treat it as if that KDF were not offered, and MUST NOT select it.
 The KDFs of this document are TLS13_TURBOSHAKE256
 ({{turboshake-profile}}) and TLS13_SHAKE256 ({{shake-profile}}).
 
-A server MUST NOT select a KDF the client did not offer.  A server that
-selects a KDF of this document MUST send the extension in its
-ServerHello, so the selection is covered by the transcript
-({{downgrade-resistance}}).
+A server MUST NOT select a KDF the client did not offer.  A client MUST
+abort the handshake with an illegal_parameter alert if the ServerHello
+or HelloRetryRequest selects a KDF it did not offer, as {{Section 4.2.3
+of RFC9846}} requires for the cipher suite.  A server that selects a
+KDF of this document MUST send the extension in its ServerHello, so the
+selection is covered by the transcript ({{downgrade-resistance}}).
 
 A server that sends a HelloRetryRequest and selects a KDF of this
-document MUST carry the selected KDF as a schedule_profile extension in
-the HelloRetryRequest.  That selection pins the KDF for the rest of the
-handshake and is the KDF implied by the HelloRetryRequest
+document MUST carry the selected KDF as a schedule_profile extension
+in the HelloRetryRequest.  That selection pins the KDF for the rest of
+the handshake and is the KDF implied by the HelloRetryRequest
 ({{governing-profile}}).  The client computes its second ClientHello
 and every later checkpoint under that KDF, and the HelloRetryRequest is
-covered by the transcript.
+covered by the transcript.  A HelloRetryRequest without the extension
+selects the TLS 1.3 schedule for the rest of the handshake, and the
+server MUST NOT then send the extension in its ServerHello.  A client
+MUST abort the handshake with an illegal_parameter alert if the
+ServerHello's schedule_profile, present or absent, differs from the
+HelloRetryRequest's, as {{Section 4.2.4 of RFC9846}} requires for the
+cipher suite.
 
 ## What the KDF Governs {#profile-governs}
 
@@ -875,14 +878,16 @@ A KDF defines every key-schedule computation of the connection,
 including the transcript hash ({{schedule-profiles}}).  When a KDF of
 this document is negotiated, the hash named by the cipher suite governs
 nothing in the key schedule:  the transcript hash is the KDF's, and the
-derivations and MACs are the KDF's.
+derivations and MACs are the KDF's.  The transcript hash a
+CertificateVerify signs ({{Section 4.5.2 of RFC9846}}) is also the KDF's
+TranscriptHash.
 
 The cipher suite's name still carries that hash.  A connection on
 TLS_AES_128_GCM_SHA256 with TLS13_TURBOSHAKE256 selected takes
 AES-128-GCM, its Nk and Nn, and its per-record nonce construction from
-the suite, and takes SHA-256 from nowhere:  no part of the key
-schedule uses it.  A connection that negotiates no KDF is unaffected:
-the suite's hash governs its schedule exactly as TLS 1.3 specifies.
+the suite, and takes SHA-256 from nowhere:  no part of the key schedule
+uses it.  A connection that negotiates no KDF is unaffected:  the
+suite's hash governs its schedule exactly as TLS 1.3 specifies.
 
 # The Deck Schedule {#deck-schedule}
 
@@ -892,9 +897,9 @@ Both KDFs of this document express the key schedule as a deck function
 The schedule's normative interface is defined here, in terms of the
 profile's XOF and nothing else:  Init and Absorb build a framed input
 sequence, Derive reads one to produce a keyed output, and Ratchet
-crosses a stage boundary.  A derived value is one XOF call over the
-sequence that produced it.  The security this rests on is the XOF's own
-({{cryptographic-analysis}}), not a contract inherited from an
+crosses a stage boundary.  Each Derive is one XOF call over its input
+sequence.  Its bound is the XOF's own, given the premises in
+{{cryptographic-analysis}}, not a contract inherited from an
 abstraction.  {{turboshake-profile}} and {{shake-profile}} each give a
 short instantiation naming the profile's XOF, permutation, and
 domain-separation constants.
@@ -916,8 +921,8 @@ deck function:
   input strings, with the output length bound into the sequence before
   any output is produced ({{deck-interface}}).  The construction beneath
   it is an XOF and takes no key parameter, its secrets being ordinary
-  framed inputs.  Related work on keyed functions over a forked state is
-  discussed in {{related-constructions}}.
+  framed inputs.  Related keyed-sponge results are discussed in
+  {{related-constructions}}.
 
 stage:
 : One of the three phases of the schedule:  early (keyed by the PSK),
@@ -928,18 +933,17 @@ stage:
 
 ratchet:
 : Crossing a stage boundary with the Ratchet operation of
-  {{deck-interface}}:  the residue is Derive(D, "derived"), and the next
+  {{deck-interface}}:  the residue is Derive(D, "drv"), and the next
   deck is Init'd, framing schedule_label, then seeded with that residue,
   after which the completed deck is destroyed ({{erasure-boundaries}}).
 
-The presentation is stateful, but the construction is not.  Every
-derived value equals one invocation of a profile's deck function over
-the framed derivation path from its stage's initialization to that
-value, with no extract-then-expand structure.  The three stages of
-{{key-schedule}} are protocol phases separated by ratchets, not KDF
-steps:  shared trunks absorb each input once, the handshake holds only
-two intermediate secrets, and the one-way truncations fall at the
-stage boundaries where TLS must erase prior state.
+The presentation is stateful, but the construction is not.  Each Derive
+equals one invocation of a profile's deck function over its framed input
+sequence.  The three stages of {{key-schedule}} are protocol phases
+separated by ratchets, not KDF steps:  shared trunks absorb each input
+once, the two ratchet residues connect the stages, and the one-way
+truncations fall at the stage boundaries where TLS must erase prior
+state.
 
 ## The Deck Schedule Interface {#deck-interface}
 
@@ -951,39 +955,41 @@ The schedule runs one deck per stage, driven by four operations.
 ### Operations
 
 ~~~~
-Init([seed])         D = frame(schedule_label) [ || frame(seed) ]
+Init([seed])         D = frame(schedule_label)
+                         [ || frame("seed") || frame(seed) ]
 
 Absorb(D, tag, v)    D = D || frame(tag) || frame(v)
 
 Derive(D, label,     out = DF(D [ || frame(ctag) || frame(context) ]
        [context], [L])         || frame(label)
-                               || frame("out") || frame(uint16(L)), L)
+                               || frame("out_") || frame(uint16(L)), L)
                      # D is cloned, not consumed
                      # ctag names context, as tag names v in Absorb
                      # omitted L is SecretLen
 
-Ratchet(D)           residue = Derive(D, "derived")
+Ratchet(D)           residue = Derive(D, "drv")
                      return Init(residue)
-                     # residue = Derive-Secret(., "derived", "");
+                     # analogue of Derive-Secret(., "derived", "")
                      # the next deck is Init, seeded with the residue
 ~~~~
 
 Init starts a deck by framing schedule_label.  Every deck is Init'd, so
-every keyed sequence opens with frame(schedule_label), TLS 1.3's
-"tls13 " prefix ({{domain-separation}}).  A ratchet residue or a
-retained secret is passed to Init as the seed ({{key-schedule}},
-{{expand-op}}).
-Absorb feeds one tagged input into the running deck.  That is the same
-role HKDF-Extract's mixing step plays in TLS 1.3.
+every keyed sequence opens with frame(schedule_label), TLS 1.3's label
+prefix ({{domain-separation}}).  A ratchet residue or a retained secret
+is passed to Init as the seed and framed under the tag "seed"
+({{key-schedule}}, {{expand-op}}).  Absorb feeds one tagged input into
+the running deck.  That is the same role HKDF-Extract's mixing step
+plays in TLS 1.3.
 
 Derive is the keyed-output operation.  It clones the running deck,
-absorbs that leaf's context, then adds the leaf label.  The context is a
-transcript checkpoint under ctag "th" at a stage leaf, an expansion
-context under ctag "context" for a retained secret, or none.  The
-context precedes the label here, the reverse of TLS 1.3's HkdfLabel
-order.  The framing is injective either way, so the order does not bear
-on security, and placing the context first lets sibling leaves that
-share it branch after one absorption.
+absorbs that leaf's context, then adds the leaf label.  The deck being
+derived from fixes ctag:  a live stage trunk takes "th__", whose context
+is a transcript checkpoint, and a deck seeded from a retained secret
+takes "ctx_", whose context is that derivation's expansion context.  A
+Derive with no context frames neither.  The context precedes the label
+here, the reverse of TLS 1.3's HkdfLabel order.  The framing is
+injective either way, and placing the context first lets sibling leaves
+that share it branch after one absorption.
 
 The clone leaves the deck unchanged, so one deck yields all of a stage's
 leaves.  Derive fills exactly HKDF-Expand-Label's role.  At a stage leaf
@@ -993,50 +999,143 @@ a Derive over a deck seeded with that secret ({{expand-op}}).  A Derive
 that omits L, including every leaf of the key schedule
 ({{key-schedule}}) and the Ratchet residue, outputs SecretLen octets.  A
 Derive that fixes its own length passes L explicitly (record keys,
-exporters, the ECH confirmation).
+exporters, the ECH confirmation, MAC).
 
 Ratchet crosses a stage boundary.  Its residue is a Derive under the
-label "derived", which is this schedule's analogue of TLS 1.3's
+label "drv", which is this schedule's analogue of TLS 1.3's
 Derive-Secret(., "derived", "") between stages.  The next deck is Init'd
 like any other, framing schedule_label, then seeded with that residue,
-so "derived" names the residue, not the new deck.  The residue is
-internal and never leaves the schedule.  Any stage input, such as the
-asymmetric shared secret, is a later Absorb into the new deck, not part
-of the ratchet.
+so "drv" names the residue, not the new deck.  The residue is internal
+and never leaves the schedule.  Any stage input, such as the asymmetric
+shared secret, is a later Absorb into the new deck, not part of the
+ratchet.
 
-The old deck is retired, and an implementation MUST NOT Absorb into or
-Derive from it afterward.  Because the residue is a squeeze, a later
-compromise recovers the retired state only by guessing it, which its
-min-entropy bounds ({{erasure-boundaries}}).  This is not the in-place
-Ratchet() of Cyclist or STROBE ({{XOODYAK}}, {{STROBE}}), which returns
-nothing.
+The old deck is retired:  nothing absorbs into it or derives from it
+afterward.  Because the residue is a squeeze, recovering the retired
+state from it takes a query on the secret-bearing input in the
+random-oracle game, provided the old deck was erased
+({{erasure-boundaries}}).  This is not the in-place Ratchet() of Cyclist
+or STROBE ({{XOODYAK}}, {{STROBE}}), which returns nothing.
 
 A Derive is one DF call over its framed path, and a ratchet residue is
 one such Derive.  It is therefore byte-exact and testable alone.
 
+## Labels and Alignment {#labels}
+
+schedule_label is 6 octets and every tag is 4 octets, so
+frame(schedule_label) fills 8 octets and every framed tag, together with
+the two-octet length of the value it names, fills 8 more.  A value
+framed under a tag therefore starts on an 8-octet boundary whenever
+every value before it in the deck input is a multiple of 8 octets long,
+which lets an implementation that absorbs 64-bit lanes take key material
+without realigning it.  With the 64-octet secrets and transcript hashes
+of this document, that holds for the PSK and every seed, at offset 16,
+for the first asymmetric shared secret component, at offset 88, for
+every transcript checkpoint and MAC message that follows only such
+values, and for the context of the ECH confirmations, at offset 56.
+
+It does not hold after a value whose length is not a multiple of 8.  A
+P-521 shared secret is 66 octets, so the transcript checkpoint after it
+starts at offset 162, and an external PSK has arbitrary length, so the
+context of its import derivation may be unaligned.  In the exporter
+({{exporters-generic}}), the raw label in the first Derive and the
+context hash in the second each start at offset 88:  8 octets for
+frame(schedule_label), 72 for the tagged seed, and 8 for frame("ctx_")
+and the context's length.
+
+Every derivation label is 3 octets.  A derivation label is the last item
+before the output length, so its length does not bear on alignment, and
+a short label keeps the tail of a Derive at 15 octets.  Labels and tags
+are absorbed as they are.  Apart from handshake transcript hashes, the
+only inputs reduced by TranscriptHash before framing are the exporter
+context and the ImportedIdentity, whose lengths are not bounded by this
+document ({{exporters-generic}}, {{import-derivation}}).
+
+Tags shorter than four letters are padded with underscores.  The tags
+are:
+
+| Tag | Names | Replaces |
+|---|---|---|
+| "psk_" | the PSK, in the early stage | "psk" |
+| "shs_" | each asymmetric shared secret component | "dh" |
+| "seed" | Init seed: residue or retained secret | (untagged) |
+| "th__" | Transcript checkpoint at a stage leaf | "th" |
+| "ctx_" | Retained-secret derivation context | "context" |
+| "out_" | the output length | "out" |
+{: #tag-table title="Tags"}
+
+Each label replaces the TLS 1.3, {{RFC9258}}, or {{RFC9849}} label of
+the derivation it names.  "mac" has no TLS 1.3 counterpart:
+
+| Label | Derives | Replaces |
+|---|---|---|
+| "cet" | c_e_traffic | "c e traffic" |
+| "ees" | early_exporter_secret | "e exp master" |
+| "ebk" | binder_key, non-imported external PSK | "ext binder" |
+| "ibk" | binder_key, imported PSK | "imp binder" ({{Section 5.2 of RFC9258}}) |
+| "rbk" | binder_key, resumption PSK | "res binder" |
+| "drv" | a ratchet residue | "derived" |
+| "cht" | c_hs_traffic | "c hs traffic" |
+| "sht" | s_hs_traffic | "s hs traffic" |
+| "cat" | c_ap_traffic | "c ap traffic" |
+| "sat" | s_ap_traffic | "s ap traffic" |
+| "exs" | exporter_secret | "exp master" |
+| "rss" | resumption_secret | "res master" |
+| "fin" | finished_key | "finished" |
+| "mac" | a Finished or binder tag | (HMAC) |
+| "key" | key_block | "key" and "iv" |
+| "upd" | the next traffic secret | "traffic upd" |
+| "rsp" | resumption_psk | "resumption" |
+| "ipk" | ipsk | "derived psk" |
+| "exl" | an exporter label secret | Derive-Secret(Secret, label, "") |
+| "exp" | an exporter output | "exporter" |
+| "eca" | accept_confirmation | "ech accept confirmation" |
+| "hca" | hrr_accept_confirmation | "hrr ech accept confirmation" |
+{: #label-table title="Labels"}
+
+Labels are distinct from one another, and every label differs from every
+tag in length.  A c_e_traffic leaf lays out as follows, with the PSK and
+TH_CH aligned:
+
+~~~~
+offset
+     0  0x0006 || "tls13 "               frame(schedule_label)
+     8  0x0004 || "psk_" || 0x0040       PSK at offset 16
+    80  0x0004 || "th__" || 0x0040       TH_CH at offset 88
+   152  0x0003 || "cet"                  frame(label)
+   157  0x0004 || "out_"                 frame("out_")
+   163  0x0002 || uint16(L)              frame(uint16(L))
+~~~~
+
 ## Derivation Shapes {#shapes}
 
-Every TLS 1.3 derivation replaced by this document is an instance of
-one of six shapes.
+Every TLS 1.3 derivation replaced by this document is an instance of one
+of six shapes.
 
-| Shape | TLS 1.3 site | Realization |
-|---|---|---|
-| Root absorb | the Early Secret extract | Init + Absorb |
-| Accumulate | the Handshake Secret extract IKM (per component) | Absorb |
-| Ratchet | Derive-Secret(., "derived", "") at a boundary | Ratchet |
-| Derive from a deck | traffic and exporter secrets; PSK binder keys | Derive |
-| Derive from a secret | record keys; exporters; key update; resumption; PSK import ({{RFC9258}}) | Derive |
-| Keyed check | Finished; PSK binders | MAC |
-{: #shape-table title="Derivation Shapes and Their Realizations"}
+1. Root absorb: the Early Secret extract, as Init + Absorb.
+
+2. Accumulate: the Handshake Secret extract IKM, per component, as
+   Absorb.
+
+3. Ratchet: Derive-Secret(., "derived", "") at a boundary, as Ratchet.
+
+4. Deck derive: traffic and exporter secrets, PSK binder keys, as
+   Derive.
+
+5. Secret derive:  record keys, exporter label secrets and outputs, key
+   update, resumption, PSK import ({{RFC9258}}), as Derive.
+
+6. Keyed check: Finished and PSK binders, as MAC.
 
 Shapes 1 through 3 act on the trunk of a stage.  Shapes 4 and 5 are the
 same operation, Derive, over a live trunk or over a seeded deck rooted
-at a retained secret ({{expand-op}}).  Shape 6 is a self-contained keyed
-call.  Record keys are derived from their traffic secret by a separate
-call, as in TLS 1.3, so a retained traffic secret suffices to re-derive
-its keys.  Deriving them within the call that produces the traffic
-secret would save a few invocations but break that re-derivability, so
-the schedule keeps the separate call.
+at a retained secret ({{expand-op}}).  Shape 6 is shape 5 under the
+label "mac", with the message as context ({{mac-op}}).  Record keys are
+derived from their traffic secret by a separate call, as in TLS 1.3, so
+a retained traffic secret suffices to re-derive its keys.  Deriving them
+within the call that produces the traffic secret would save a few
+invocations but break that re-derivability, so the schedule keeps the
+separate call.
 
 ## Key Schedule {#key-schedule}
 
@@ -1044,65 +1143,67 @@ The schedule has three stages separated by two ratchets.  A key-update
 generation is a derivation of the retained traffic secret
 ({{key-update-generic}}), not a further ratchet.  Stage trunks and stage
 secrets bind no cipher suite value, matching the TLS 1.3 extracts they
-replace, and no leaf derivation binds one either:  a client offering
-several cipher suites under one KDF computes one schedule, and only the
-record-key derivations depend on the suite, through the Nk + Nn they
-output ({{record-keys-generic}}).  Every derivation frames
-schedule_label at Init ({{deck-interface}}).  The negotiated KDF is
-bound by the XOF, not by this label.  This listing is identical for both
-profiles.  Only each profile's DF and MAC instantiations differ
+replace; no leaf derivation binds one directly either.  A client
+offering several cipher suites under one KDF computes one schedule.
+Only record-key derivations depend directly on the suite, through their
+Nk + Nn output length ({{record-keys-generic}}).  Every derivation
+frames schedule_label at Init ({{deck-interface}}).  The negotiated KDF
+is bound by the XOF, not by this label.  This listing is identical for
+both profiles.  Only each profile's DF instantiation differs
 ({{turboshake-profile}}, {{shake-profile}}).
 
 ~~~~
 E = Init()
-Absorb(E, "psk", PSK)              # "" when no PSK is offered
+Absorb(E, "psk_", PSK)             # "" when no PSK is selected
 
 # early-stage leaves, each a clone of the early deck E
-c_e_traffic  = Derive(E, "c e traffic", TH_CH)   # 0-RTT
-e_exp_master = Derive(E, "e exp master", TH_CH)   # 0-RTT
-binder_key   = Derive(E, ext_or_res_label)        # no context
+c_e_traffic           = Derive(E, "cet", TH_CH)      # 0-RTT
+early_exporter_secret = Derive(E, "ees", TH_CH)      # 0-RTT
+binder_key            = Derive(E, binder_label)     # no context
 
-H = Ratchet(E)                     # residue = Derive(E, "derived")
+H = Ratchet(E)                     # residue = Derive(E, "drv")
                                    # then H = Init(residue)
-Absorb(H, "dh", DHE)               # once per key-exchange component
+Absorb(H, "shs_", shared_secret)   # once per key-exchange component
 
-c_hs_traffic = Derive(H, "c hs traffic", TH_SH)
-s_hs_traffic = Derive(H, "s hs traffic", TH_SH)
+c_hs_traffic = Derive(H, "cht", TH_SH)
+s_hs_traffic = Derive(H, "sht", TH_SH)
 
-T = Ratchet(H)                     # residue = Derive(H, "derived")
+T = Ratchet(H)                     # residue = Derive(H, "drv")
                                    # then T = Init(residue)
 
-c_ap_traffic = Derive(T, "c ap traffic", TH_SF)
-s_ap_traffic = Derive(T, "s ap traffic", TH_SF)
-exp_master   = Derive(T, "exp master", TH_SF)
-res_master   = Derive(T, "res master", TH_CF)
+c_ap_traffic      = Derive(T, "cat", TH_SF)
+s_ap_traffic      = Derive(T, "sat", TH_SF)
+exporter_secret   = Derive(T, "exs", TH_SF)
+resumption_secret = Derive(T, "rss", TH_CF)
 # T destroyed
 ~~~~
 
 When the negotiated group is a hybrid or other multi-component key
-exchange, DHE is not one secret.  Each component shared secret is
-absorbed by its own Absorb(H, "dh", component), in the order that group
-defines them, and the components are never concatenated first.  Both
-peers MUST absorb in that order, so they build the same handshake-stage
-input sequence.
+exchange, shared_secret denotes the ordered list of component shared
+secrets whose concatenation the group specification defines as its
+shared secret (for example, {{RFC9954}}).  Both peers MUST use exactly
+those components in that concatenation order, absorbing each with its
+own Absorb(H, "shs_", component), without first concatenating them.
 
 ### Absent and Empty Inputs {#absent-empty}
 
-A handshake without a PSK still executes Absorb(E, "psk", "").  That
+A handshake without a PSK still executes Absorb(E, "psk_", "").  That
 call contributes the following bytes:
 
 ~~~~
-frame("psk") || frame("") = 0x0003 || "psk" || 0x0000
+frame("psk_") = 0x0004 || "psk_"
+frame("")     = 0x0000
 ~~~~
 
-This is unambiguous because a PSK of this document is never zero-length
-(an imported or resumption PSK is 64 octets, {{psk-importer}}).  In that
-case the early stage carries no leaves and its deck holds only known
-constants, as TLS 1.3's Early Secret is the extract of two known
-constants.  The stage exists for uniformity across handshake modes, and
-the schedule's security does not rest on its secrecy when no PSK is
-present.  A PSK-only handshake omits Absorb(H, "dh", ...) entirely:  the
-tag "dh" does not appear in the sequence.
+This is unambiguous because a PSK of this document is never zero-length:
+an imported or resumption PSK is 64 octets ({{psk-importer}}), and an
+endpoint MUST NOT use an empty raw external PSK.  Without a PSK, the
+early stage carries no leaves and its deck holds only known constants,
+as TLS 1.3's Early Secret is the extract of two known constants.  The
+stage exists for uniformity across handshake modes, and the schedule's
+security does not rest on its secrecy when no PSK is present.  A
+PSK-only handshake omits Absorb(H, "shs_", ...) entirely:  the tag
+"shs_" does not appear in the sequence.
 
 ### Stage Secrets {#stage-secrets}
 
@@ -1112,11 +1213,10 @@ A leaf clones the running deck rather than reading an extracted octet
 string, so no named early or main secret is materialized.
 
 Each stage boundary is a Ratchet ({{deck-interface}}) whose residue is
-Derive(D, "derived"), and whose next deck is Init'd, framing
-schedule_label, and seeded with that residue.  That residue is the
-analogue of TLS 1.3's unnamed "derived" salt.  It never leaves the
-schedule.  It seeds the next deck once and is then discarded
-({{erasure-boundaries}}).
+Derive(D, "drv"), and whose next deck is Init'd, framing schedule_label,
+and seeded with that residue.  That residue is the analogue of TLS 1.3's
+unnamed "derived" salt.  It never leaves the schedule.  It seeds the
+next deck once and is then discarded ({{erasure-boundaries}}).
 
 The values that do leave, the traffic and exporter secrets, are
 separated by their framed paths ({{domain-separation}}):  sibling leaves
@@ -1124,7 +1224,7 @@ within a stage differ by label, and every leaf also binds its transcript
 checkpoint.  Early data is separated in addition by the 0-RTT equality
 check ({{governing-profile}}).  Every stage binds its transcript at the
 leaves, so the decks themselves bind none.  The derivation graph maps
-the TLS 1.3 graph node for node, adding none ({{derivation-graph}}).
+onto the TLS 1.3 graph ({{derivation-graph}}).
 
 # The TLS13_TURBOSHAKE256 Profile {#turboshake-profile}
 
@@ -1155,11 +1255,9 @@ needs an 8 * L conversion ({{shake-instantiation}}).
 
 The transcript hash of {{transcript-hash}} is instantiated with the same
 function:  TranscriptHash(x) = TurboSHAKE256("tls13 hash" || x, 0x1F,
-64).  The domain-separation byte for the deck and the transcript hash is
-fixed to 0x1F, the RFC 9861 default, so an API without the D parameter
-implements both unchanged.  The MAC ({{mac-op}}) requires D = 0x04, so
-the TurboSHAKE interface this profile uses has to expose the domain
-byte.
+64).  The domain-separation byte is fixed to 0x1F, the RFC 9861 default,
+for every use of TurboSHAKE256 in this profile, so an API without the D
+parameter implements the profile unchanged.
 
 TurboSHAKE256 uses the Keccak-p\[1600,12\] permutation as a sponge:
 input is absorbed into a 1600-bit state in rate-sized blocks of 136
@@ -1173,20 +1271,12 @@ it.
 ### Required API Surface
 
 The required API surface is incremental absorption, cloning of an
-unfinalized state, and one-shot squeeze with the output length
-known up front.  Cloning before any output is incremental input to
-two separate invocations, which Section 2.1 of {{RFC9861}} permits.
-No absorb-after-squeeze occurs anywhere in this document, so no
-access below the TurboSHAKE interface is required.  The clone
-discipline is the same one TLS stacks already apply to SHA-2
-transcript-hash checkpoints.
-
-## MAC {#turboshake-mac}
-
-This profile's MAC is the construction of {{mac-op}} over this profile's
-Keccak-p\[1600,12\] permutation:  the sponge is TurboSHAKE256(mac_input,
-0x04, L), which this document names TurboKMAC256.  TurboKMAC256 is not a
-NIST-defined instance of KMAC ({{cryptographic-analysis}}).
+unfinalized state, and one-shot squeeze with the output length known
+up front.  Cloning before any output is incremental input to two
+separate invocations, which Section 2.1 of {{RFC9861}} permits.  No
+absorb-after-squeeze occurs anywhere in this document, so no access
+below the TurboSHAKE interface is required.  The clone discipline is the
+same one TLS stacks already apply to SHA-2 transcript-hash checkpoints.
 
 # The TLS13_SHAKE256 Profile {#shake-profile}
 
@@ -1223,8 +1313,8 @@ profile's domain separation comes from seq(S) beginning with
 frame(schedule_label), as {{shake-profile}} describes
 ({{deck-interface}}).
 
-The transcript hash of {{transcript-hash}} is instantiated with the
-same function: TranscriptHash(x) = SHAKE256("tls13 hash" || x, 512).
+The transcript hash of {{transcript-hash}} is instantiated with the same
+function: TranscriptHash(x) = SHAKE256("tls13 hash" || x, 512).
 
 SHAKE256 uses the Keccak-f\[1600\] permutation as a sponge with the same
 136-octet rate and 512-bit capacity as TurboSHAKE256
@@ -1239,19 +1329,23 @@ The required API surface is that of {{turboshake-instantiation}}:  no
 absorb-after-squeeze occurs, so no access below the SHAKE256 interface
 is required.
 
-## MAC {#shake-mac}
-
-This profile's MAC is the construction of {{mac-op}} over this profile's
-Keccak-f\[1600\] permutation:  that permutation is the one cSHAKE256 and
-KMAC256 are built on, and the layout and 0x04 domain byte are the ones
-cSHAKE and KMAC use, so the result is byte-for-byte NIST KMAC256
-{{SP800-185}} by construction.
-
 # PSK Importer {#psk-importer}
 
 TLS 1.3 permits external PSKs {{RFC9846}}, and {{RFC9258}} imports an
 external PSK into a target KDF, producing a PSK bound to its target.
-This document uses that mechanism unchanged.
+This document updates the importer computation in {{Section 5.1 of
+RFC9258}} for the KDFs defined here.  It replaces HKDF-Extract and
+HKDF-Expand-Label using the EPSK-associated hash, or its SHA-256
+default, with the target KDF's "ipk" derivation and TranscriptHash
+({{import-derivation}}).  RFC 9258 uses the target KDF only for output
+length and identity separation; this document also uses it to select the
+importer computation, avoiding a SHA-2 dependency.
+
+A provisioning importer taught only the new TLS KDF Identifier and
+output length still applies RFC 9258's EPSK-associated-hash rule.  It
+produces a different ipsk for the same ImportedIdentity than the
+importer specified here.  A peer using this document's computation
+discovers the mismatch at binder verification.
 
 A KDF of this document is a TLS KDF Identifier
 ({{iana-considerations}}), so an external PSK imported for use with one
@@ -1269,45 +1363,65 @@ negotiates.
 
 The import derivation is the generic derivation of
 {{import-derivation}}, keyed by epsk under target_kdf.  An endpoint MUST
-NOT use the raw external PSK epsk directly as a TLS PSK under a KDF of
-this document, and MUST NOT import an epsk longer than 0xFFFF octets, so
-every framed value fits a single frame.  A client that imports one
-external PSK for use under more than one KDF MUST produce a separate
-ImportedIdentity, and hence a separate ipsk, per target_kdf, exactly as
-RFC 9258 requires.
+NOT import an epsk, or use a raw external PSK, longer than 0xFFFF
+octets, so every framed value fits a single frame.  A client that
+imports one external PSK for use under more than one KDF MUST produce
+a separate ImportedIdentity, and hence a separate ipsk, per target_kdf,
+exactly as RFC 9258 requires.
+
+Import is RECOMMENDED.  As in {{RFC9258}}, it is not required.  A raw
+external PSK is associated with its KDF when it is established.  One
+established without a KDF is associated with SHA-256, as {{Section
+4.3.11 of RFC9846}} specifies for an external PSK without a hash, and
+so with the TLS 1.3 schedule rather than a KDF of this document.  A raw
+external PSK carries no binding to the KDF it is used under, and its
+length is whatever provisioning chose, so a length that is not a
+multiple of 8 leaves the items after it unaligned ({{labels}}) and may
+cost one further permutation.  An imported PSK is SecretLen octets and
+raises neither question.
+
+For imports into these KDFs, target-KDF selection also supersedes the
+single-associated-hash restriction in {{Section 4 of RFC9258}}.  The
+separate ImportedIdentity values bind each ipsk to one target KDF,
+preventing reuse of one imported PSK across TLS schedules.  They do not
+isolate the underlying epsk from the different importer KDFs:  importing
+the same epsk for both profiles feeds that secret to both permutations
+({{profile-separation}}).
 
 # Zero-RTT and Early Data {#zero-rtt}
 
 Early data remains PSK-only and remains replayable under the TLS 1.3
 anti-replay model.  This document changes neither.  A client MAY send
-early data only if the first offered PSK's recorded cipher suite is
-among the cipher suites it offers and the remembered ALPN and early-data
-policy match the ticket.  A server MUST reject early data unless the
-selected cipher suite equals the offered PSK's recorded cipher suite,
-the selected ALPN equals the ticket's, and all TLS 1.3 anti-replay
-checks pass.  The suite-equality check, not the binder, prevents
-redirecting early data to a different AEAD.
+early data using the first offered PSK's associated parameters
+({{governing-profile}}) only if they permit early data and the
+associated cipher suite is among those it offers.  A server MUST reject
+early data unless the offered PSK's associated parameters permit early
+data, the selected cipher suite equals the offered PSK's associated
+cipher suite, the selected ALPN equals the PSK's associated ALPN, and
+all TLS 1.3 anti-replay checks pass.  The suite-equality check, not the
+binder, prevents redirecting early data to a different AEAD.
 
 # Alerts {#alerts}
 
-This section lists the alerts an implementation of this document
-sends, in addition to those already defined by TLS 1.3:
+This section lists the alerts an implementation of this document sends,
+in addition to those already defined by TLS 1.3:
 
-- illegal_parameter: a raw external PSK offered for use under a KDF
-  of this document without import ({{psk-importer}}); or an
-  ImportedIdentity whose target_kdf does not equal the selected KDF.
+- illegal_parameter:  a ServerHello or HelloRetryRequest that selects a
+  KDF the client did not offer, a ServerHello whose schedule_profile
+  differs from the HelloRetryRequest's, or a selected PSK whose KDF, for
+  an imported PSK its target_kdf, is incompatible with the selected KDF.
 
 - decrypt_error: a Finished or PSK binder MAC that fails
   verification, as in TLS 1.3.
 
-- handshake_failure:  no KDF of this document is mutually supported
-  when one is required.
+- handshake_failure:  a KDF of this document is required by local
+  policy but none is negotiated.
 
 # Companion Mechanisms {#companion-mechanisms}
 
-Several deployed mechanisms invoke HKDF-Expand-Label directly.  This
-document defines the Encrypted Client Hello confirmation for its KDFs
-({{ech-generic}}), because ECH is pervasive in the deployments most
+Several deployed mechanisms invoke HKDF-Expand-Label or HMAC directly.
+This document defines the Encrypted Client Hello confirmation for its
+KDFs ({{ech-generic}}), because ECH is pervasive in the deployments most
 likely to exercise these schedules.  The remaining mechanisms are out of
 scope until a companion document defines their analogues.
 
@@ -1318,8 +1432,8 @@ scope until a companion document defines their analogues.
   prefix (Section 5.9).  DTLS-Only is N in {{iana-considerations}}.
 - QUIC {{RFC9001}} derives its Initial secrets and its "quic key", "quic
   iv", "quic hp", and "quic ku" values with HKDF-Expand-Label.
-- Exported Authenticators {{RFC9261}} derive their own Finished keys
-  with HKDF-Expand-Label.
+- Exported Authenticators {{RFC9261}} compute their Finished value with
+  HMAC under the connection's hash.
 
 An endpoint negotiating a KDF of this document MUST NOT use these
 mechanisms with that connection unless a specification defines their
@@ -1378,187 +1492,104 @@ The target_kdf of an ImportedIdentity is the TLS KDF Identifier the
 importing client will negotiate in the schedule_profile extension
 ({{cipher-suites}}).  For a connection that negotiates no KDF, the
 target_kdf is HKDF_SHA256 or HKDF_SHA384 as the target cipher suite's
-hash determines, exactly as before this document.  Nothing else in
-{{RFC9258}} changes.
+hash determines, exactly as before this document.  For the KDFs defined
+here, {{psk-importer}} also replaces the importer computation and
+EPSK-associated-hash rule of {{Section 5.1 of RFC9258}}.
 
 The schedule_profile extension carries the negotiated TLS KDF Identifier
 value on the wire, and the transcript hash covers it
 ({{cipher-suites}}), so no final message-level trace for a KDF of this
 document can exist before its value is assigned.  Schedule-level vectors
-do not wait on that assignment, since every derivation of
-{{key-schedule}} takes its transcript checkpoint as an argument, and a
-checkpoint stated as a literal value pins the output with no code point
-anywhere in the input.  The one exception is ipsk
-({{import-derivation}}), whose context is TranscriptHash of an
-ImportedIdentity that carries target_kdf.  Early allocation under RFC
-7120 should be considered once the document is adopted.
-{{test-vectors}} carries no message-level trace yet.
+do not wait on that assignment, since no derivation of {{key-schedule}}
+absorbs a code point:  a transcript checkpoint enters as an argument,
+and one stated as a literal value pins the output with no code point
+anywhere in the input.  The exceptions are ipsk ({{import-derivation}}),
+whose context is TranscriptHash of an ImportedIdentity that carries
+target_kdf, and values derived from ipsk, including the imported-PSK
+binder.  {{test-vectors}} carries no message-level trace yet.
 
 # Security Considerations {#security-considerations}
 
-This section follows RFC 3552.  It states what the schedules protect,
-the assumptions they rest on, the properties common to every KDF of this
-document, and the analysis specific to each.
-
 ## KDF Separation {#profile-separation}
 
-Within a KDF, distinct derivation paths produce distinct injectively
-framed inputs to its XOF:  labels, output lengths, and context fields
-are bound into each output, so no two derivation paths collide
-({{domain-separation}}).
+TLS13_TURBOSHAKE256 and TLS13_SHAKE256 frame the same schedule_label,
+so their inputs can coincide.  They run different permutations, the
+12-round Keccak-p\[1600,12\] and the 24-round Keccak-f\[1600\], though
+the first is the last 12 rounds of the second ({{FIPS202}}, Sections
+3.3 and 3.4).  Most secret inputs are bound to a single KDF
+({{governing-profile}}).  For those secrets, coincident framed inputs
+do not by themselves expose either secret if both XOFs jointly behave
+as independent random oracles and the source-secrecy premises hold
+({{cryptographic-analysis}}).
 
-Between the two KDFs of this document, separation is by XOF, not by that
-shared label.  TLS13_TURBOSHAKE256 and TLS13_SHAKE256 frame the same
-schedule_label, so their inputs can coincide.  They run different
-permutations, the 12-round Keccak-p\[1600,12\] and the 24-round
-Keccak-f\[1600\], though the first is the last 12 rounds of the second
-({{FIPS202}}, Sections 3.3 and 3.4).  Most secret inputs are bound to a
-single KDF ({{psk-profile-binding}}, {{governing-profile}}), so a
-coincidence of framed inputs across the two cannot expose either's
-secret.  An
-external PSK imported for use under both is the exception:
-{{psk-importer}} requires a separate ipsk per target_kdf, but the epsk
-beneath them is one secret, absorbed under both permutations.  A
-deployment that negotiates TLS13_SHAKE256 to avoid the reduced-round
-premise ({{turboshake-sec}}) does not gain that separation for such a
-PSK.
-
-Handshake and application outputs under different cipher suites of one
-KDF are separated by the transcript as in TLS 1.3, and early data by the
-0-RTT equality check ({{downgrade-resistance}}).  {{domain-separation}}
-gives the byte-level argument, which holds for both KDFs because they
-share the framing and differ only in permutation.
-
-## PSK-to-KDF Binding {#psk-profile-binding}
-
-A PSK is associated with the KDF under which it was established, and its
-binder is computed and verified under that KDF:  the binder is keyed by
-a secret derived through that KDF's XOF ({{finished-and-binder-mac}},
-{{deck-interface}}).  A PSK established under one KDF therefore cannot
-key the early stage of another and still produce a binder that verifies,
-because the two KDFs run different permutations.  The server rejects the
-mismatch on binder verification ({{governing-profile}}).
-
-Resumption locks on the hash, and under a KDF of this document the
-KDF is the hash ({{profile-governs}}).  TLS 1.3 lets a resumption
-change the cipher suite but not the hash, because the hash drives the
-KDF.  This document lets a resumption change the AEAD but not the
-KDF, for the same reason.  The binder and the KDF-compatibility rule
-hold the KDF fixed across a resumption ({{governing-profile}}), and
-the AEAD may change on a 1-RTT resumption exactly as TLS 1.3
-permits.
-
-The binder does not lock the AEAD.  On a 1-RTT resumption the selected
-suite is confirmed by the transcript, exactly as in TLS 1.3.  Early
-data is different, because its keys are derived and used before the
-transcript can confirm the server's selection: there the 0-RTT equality
-check, not the binder, keeps early data on the AEAD the client used
-({{zero-rtt}}).
+An external PSK used under both profiles is the exception.  For an
+imported PSK, {{psk-importer}} requires a separate ipsk per target_kdf,
+but the epsk beneath them is one secret, absorbed under both
+permutations.  Raw external PSK reuse also shares a secret between
+profiles.  A deployment that negotiates TLS13_SHAKE256 to avoid the
+reduced-round premise ({{turboshake-sec}}) does not gain that separation
+for such a PSK.  A deployment that provisions a separate external PSK
+per KDF, rather than using one under both, has no secret in common
+between them.
 
 ## Downgrade Resistance {#downgrade-resistance}
 
 The selected cipher suite appears in the ServerHello and therefore in
 the transcript from TH_SH onward, which every handshake and application
-output binds ({{key-schedule}}).  Every handshake and application
-output is thereby separated by the selected suite, exactly as in TLS
-1.3:  a peer that assumed a different suite would hold a different
-transcript, and its Finished MAC would fail.  Intermediate secrets are
-suite-independent, and no output binds the suite directly.  The
-transcript carries it.  Early data is the one output derived before the
-ServerHello enters the transcript, and there the 0-RTT equality check
-separates the suite ({{zero-rtt}}).
+output binds ({{key-schedule}}).  A peer that assumed a different suite
+would hold a different transcript, and its Finished MAC would fail.
 
-The negotiated KDF is separated two ways.  First, its XOF produces
-every derivation, so a peer that assumed a different KDF would derive
-different keys and its Finished MAC would fail ({{deck-schedule}}).
-Second, a server that selects a KDF of this document echoes the
-schedule_profile extension in its ServerHello, which the transcript
-covers ({{cipher-suites}}).  For early data, the KDF is the one the
-offered PSK is bound to, whose binder is an early-stage output under
-that KDF ({{governing-profile}}, {{psk-profile-binding}}).
-
-Downgrade to the TLS 1.3 schedule is a separate case, because that
-schedule is signalled by the absence of the extension rather than by a
-value ({{cipher-suites}}).  An attacker cannot produce it:  TLS 1.3's
-transcript covers the ClientHello as the client sent it and as the
-server received it, so stripping the extension in flight makes the two
-transcripts differ and the Finished MACs fail.  What remains is a server
-that does not implement the extension and declines by saying nothing.
-That is a capability mismatch rather than a downgrade, and it is visible
-to the client, which sees no schedule_profile in the ServerHello.  What
-a client does about it is the client's policy, as for any extension it
-requires and a server ignores.
-
-The two KDFs of this document differ only in the underlying permutation
-and share the composed security argument ({{cryptographic-analysis}},
-{{per-profile-considerations}}).  A deployment that offers both accepts
-whichever the server echoes, and the echo is covered by the transcript
-({{cipher-suites}}).
+Stripping the extension in flight makes the ClientHello transcripts
+differ and the Finished MACs fail.  A server can decline the extension
+by omitting it from the ServerHello ({{cipher-suites}}).  The client
+decides whether to accept that capability mismatch.  A deployment that
+offers both KDFs accepts whichever the server echoes.
 
 ## PSK Entropy {#psk-entropy}
 
-As in TLS 1.3, binder unforgeability against an attacker who can
-guess an external PSK requires the PSK to have adequate entropy,
-since such an attacker can recompute the binder offline.  External
-PSKs SHOULD be drawn with at least 512 bits of entropy, matching the
-512-bit capacity and 256-bit target security level of both profiles
-({{cryptographic-analysis}}).  That exceeds the 128-bit floor
-{{RFC9257}} recommends for external PSKs.
+An attacker who can guess an external PSK can recompute its binder
+offline.  External PSKs SHOULD be drawn with at least 512 bits of
+entropy, a conservative recommendation that bounds guessing in the
+random-oracle game by q / 2^512 in q queries
+({{cryptographic-analysis}}).  The 512-bit capacity sets a 256-bit
+security target, rather than requiring 512 bits of PSK entropy.
 
-## Authentication Is Out of Scope
+## Authentication {#authentication-sec}
 
-A KDF of this document governs only the key schedule.  A fully
-SHA-2-free connection also requires SHA-2-free authentication:
-certificate-based authentication is negotiated separately, through the
-signature_algorithms and signature_algorithms_cert extensions, and
-commonly relies on SHA-2.  A deployment that must avoid SHA-2 entirely
-MUST restrict those extensions accordingly, or use PSK-only
-authentication.  Ed25519 uses SHA-512 internally, so avoiding SHA-2
-also means excluding it in favor of a SHA-2-free signature such as
-Ed448, ML-DSA, or an SLH-DSA-SHAKE variant.
+A fully SHA-2-free connection also needs SHA-2-free authentication.  A
+deployment that must avoid SHA-2 entirely MUST restrict
+signature_algorithms and signature_algorithms_cert accordingly, or use
+PSK-only authentication.  Ed25519 uses SHA-512 internally, so the
+restriction excludes it in favor of Ed448, ML-DSA, or an SLH-DSA-SHAKE
+variant.
 
-## Retained TLS 1.3 Properties
+## Hybrid Key Exchange
 
-The 0-RTT replay properties of TLS 1.3 are unchanged.  Early data is
-governed by {{zero-rtt}}, which does not depend on the KDF.  The
-key-erasure discipline TLS 1.3 relies on for forward secrecy is
-retained, realized by each profile's destruction rules
-({{erasure-boundaries}}).  The forward-secrecy property that discipline
-supports rests on the ratchet's one-wayness, analyzed in
-{{cryptographic-analysis}} and, for the cross-stage chaining, booked
-open in {{open-analysis}}.
-
-Hybrid key exchange is not a TLS 1.3 property.  TLS 1.3 defines none.
-This schedule absorbs each asymmetric-secret component under its own
-framed tag, never concatenating them ({{key-schedule}}), following
-{{I-D.ietf-tls-hybrid-design}}.  Because each component is a distinct
-framed input, one high-entropy component keeps the derivation
-unpredictable even if another is adversarial.  That combiner robustness
-rests on the injective framing and the random-oracle argument
-({{domain-separation}}, {{cryptographic-analysis}}, {{BINDEL}}), not on
-TLS 1.3.
+One high-entropy component keeps the derivation unpredictable even if
+another is adversarial.  This robustness relies on injective framing
+and the random-oracle argument ({{domain-separation}},
+{{cryptographic-analysis}}, {{BINDEL}}), and on the source-secrecy and
+cross-stage simulation conditions left open in {{open-analysis}}.
 
 ## Cryptographic Analysis {#cryptographic-analysis}
 
-Every derivation is one call to the profile's XOF over an injectively
-framed byte string, so the bound that governs it is the sponge's own
-({{BDPV08}}).  The TLS 1.3 key schedule has a proof over its derivation
-graph ({{TLS13KS}}).
+The per-derivation bound comes from the sponge analysis ({{BDPV08}}),
+assuming source secrecy and the composition below.  Protocol security
+also depends on erasure and authentication, with proof obligations still
+open ({{open-analysis}}).
 
 ### Threat Model and Goals
 
-The adversary model and key-schedule goals are those of {{TLS13KS}}:  an
-active network adversary controls message delivery.  It may learn
-selected stage secrets under compromise predicates.  It seeks to
-distinguish unseen traffic keys, forge Finished or binder values, break
-forward secrecy across ratchet boundaries, or downgrade the negotiated
-cipher suite.  Authentication of peer identity remains outside the
-cipher suite, as in TLS 1.3.  The schedule must provide
-indistinguishability of record keys and exporter outputs under the
-chosen AEAD, integrity of the handshake transcript through Finished and
-binder verification, forward secrecy from handshake compromise to
-application traffic once the asymmetric shared secret is used, and the
-TLS 1.3 0-RTT replay model when early data is accepted.
+The adversary model and key-schedule goals are those of {{TLS13KS}}:
+an active network adversary controls message delivery.  It may learn
+selected stage secrets under compromise predicates.  Authentication of
+peer identity remains outside the cipher suite, as in TLS 1.3.  The
+schedule must provide indistinguishability of record keys and exporter
+outputs under the chosen AEAD, integrity of the handshake transcript
+through Finished and binder verification, forward secrecy from
+compromise of a handshake traffic secret to application traffic once
+the asymmetric shared secret is used, and the TLS 1.3 0-RTT replay model
+when early data is accepted.
 
 ### Primitive Assumptions
 
@@ -1566,203 +1597,134 @@ DF is the profile's XOF over a framed byte string, its permutation
 modeled as random ({{FIPS202}}).  A sponge over such a permutation is
 indifferentiable from a random oracle up to 2^(c/2) of its calls
 ({{BDPV08}}, Theorem 2 and Section 5), which is 2^256 at the 512-bit
-capacity both profiles use.  That is a mode result in the
-ideal-permutation model, independent of the round count.  What differs
-between the profiles is the strength of that premise:  the 24-round
-permutation of TLS13_SHAKE256 carries the default assurance of the full
-Keccak permutation, and the 12-round permutation of TLS13_TURBOSHAKE256
-rests on the reduced-round cryptanalysis of {{RFC9861}}, Section 7,
-which this document books open ({{turboshake-sec}},
-{{open-analysis}}).
+capacity both profiles use.
 
-The analysis then reasons in that random-oracle model.  The step from
-sponge to oracle is the indifferentiability composition of {{MRH}},
-which is sound for single-stage games and not in general for multi-stage
-ones ({{RSS}}).  {{TLS13KS}} states its result against a single
-adversary making oracle queries, which this document argues is
-single-stage in that sense but does not prove ({{open-analysis}}).  The
-bound is indifferent to the structure of the input:  it asks only that
-distinct queries be distinct strings.
+The step from sponge to oracle is the indifferentiability composition
+of {{MRH}}, which is sound for single-stage games and not in general for
+multi-stage ones ({{RSS}}).
 
-The framing supplies exactly that.  Every derivation is a single call
-DF(S, L) where seq(S) is injectively framed ({{domain-separation}}), so
-distinct derivations query the oracle at distinct points.  An adversary
-that never queries it on a string carrying the secret cannot
-distinguish those outputs from independent uniform strings.  Against a
-secret of 512 bits of entropy it reaches such a string with probability
-at most q / 2^512 in q queries ({{psk-entropy}} covers a weaker external
-PSK).  Each profile's Instantiation section fixes the XOF, its
-domain-separation parameter, and the output lengths
-({{turboshake-instantiation}}, {{shake-instantiation}}).
+Every derivation is a single call DF(S, L) where seq(S) is injectively
+framed ({{domain-separation}}), so distinct derivations query the oracle
+at distinct points.  In the random-oracle game, an adversary that never
+queries a string carrying the secret cannot distinguish those outputs
+from independent uniform strings.  For a secret with 512 bits of entropy
+conditioned on its view, the chance of such a query is at most q / 2^512
+in q queries ({{psk-entropy}} covers a weaker external PSK).  These are
+bounds in that game, subject to the preceding composition step, not
+bounds for the complete protocol.
 
-Injective framing is therefore the whole of what this schedule must
-supply for the sponge's indifferentiability bound to apply to each
-derivation.  It is not the whole of the handshake-level argument.  The
-single-stage classification, the cross-stage chaining (including its
-salted Diffie-Hellman step), and the reduced-round assumption remain
-open ({{open-analysis}}).
+Finished and binder verification require MAC to be unforgeable under
+a chosen-message attack.  Each MAC key is a 64-octet finished_key used
+for MAC and nothing else ({{finished-and-binder-mac}}).  The same key
+may be used over several messages, as for a binder recomputed after a
+HelloRetryRequest or for post-handshake Finished messages within one
+traffic generation.
+
+MAC is a Derive ({{mac-op}}), so the preceding random-oracle argument
+applies.  In that game, a uniform secret unknown to the adversary keys a
+pseudorandom function of the rest of the framed input.  With an L-octet
+output, each verification attempt adds at most 2^(-8L) to the forgery
+probability, in addition to the probability of querying the secret.
+
+The uniformity of finished_key to an adversary depends on that of the
+secrets beneath it.  A finished_key derived from a guessable external
+PSK is not uniform to the adversary ({{psk-entropy}}).
 
 ### Derivation Graph {#derivation-graph}
 
-Each derived octet string is one leaf of a derivation tree ({{shapes}}).
 The stage trunks E, H, and T and the ratchet residues map to TLS 1.3's
 Early/Handshake/Main Secrets and its unnamed "derived" salt as
-{{stage-secrets}} sets out.  binder_key is a Derive on the live early
-trunk, one of its leaves, and finished_key is a derivation of a retained
-secret ({{expand-op}});  each keys exactly one MAC invocation and no
-other output ({{finished-and-binder-mac}}).  The comparison of
-{{comparison}} matches every TLS 1.3 site to a leaf here, none missing,
-so the map is one-to-one on derived values, node for node with no
-derivation added.  It is structural and does not carry the TLS 1.3
-proof.
-
-This document defines each leaf by its framed path, one deck invocation
-from its stage's Init to that leaf.  The analysis follows that path,
-where each leaf is a single random-oracle query
-({{cryptographic-analysis}}).  An implementation carries the trunk and
-clones it at each branch ({{permutation-count}}).  Because the clone
-reproduces that framed path byte for byte, it is output-identical to
-computing each leaf's path independently, and adds no assumption beyond
-the per-leaf discrete-query analysis.  Whether that analysis covers the
-forked schedule as a whole is booked open ({{open-analysis}}).
+{{stage-secrets}} sets out.  The map is onto rather than one to one:
+this document derives key_block once and slices the record key and IV
+from it, where TLS 1.3 derives each at its own site.  It is structural
+and does not carry the TLS 1.3 proof.
 
 ### What Is Not Yet Established {#open-analysis}
 
-This document changes the key schedule of a protocol whose key schedule
-has been analyzed, and does not yet have an equivalent analysis of its
-own.  The following are open.
+This schedule does not yet have an analysis equivalent to {{TLS13KS}}.
 
-The single-stage classification.  {{MRH}}'s composition is sound only
-for single-stage games ({{RSS}}).  This document argues the game it
-relies on qualifies, and so that the random-oracle substitution carries
-to this schedule, but does not prove it ({{cryptographic-analysis}}).
+The single-stage classification needed for {{MRH}}'s composition remains
+unproved ({{RSS}}, {{cryptographic-analysis}}).
 
-The chaining.  {{TLS13KS}} is proved over discrete extract-and-expand
-nodes, not over an accumulator carried across each stage and cloned at
-its leaves.  That analysis is owed.
-
-The reduced round count.  Keccak-p\[1600,12\] is not proven, by
-{{RFC9861}} or by this document ({{turboshake-sec}}).  TLS13_SHAKE256
-exists for deployments unwilling to assume it.
-
-The MAC.  TurboKMAC256 is not covered by NIST's KMAC analysis, which is
-scoped to the full-round permutation ({{turboshake-sec}}).
-Establishing its EUF-CMA security is work this document leaves open.  A
-deployment unwilling to wait for it can negotiate TLS13_SHAKE256, whose
-MAC is NIST KMAC256 and carries no such obligation.
+{{TLS13KS}} is proved over discrete extract-and-expand nodes, not over
+an accumulator carried across each stage and cloned at its leaves.  The
+cross-stage chaining needs analysis, in particular absorbing the
+asymmetric shared secret into a deck seeded with the early residue, the
+step TLS 1.3 performs as an HKDF-Extract salted with the early secret's
+"derived" value.
 
 ## Erasure Boundaries {#erasure-boundaries}
 
-### Why a Stage Boundary Is a Ratchet
-
 A sponge accumulator is built on a permutation, and permutations are
-invertible.  An accumulator reached from an earlier one by absorption
-alone therefore carries its whole past.  The blocks absorbed in
-between are public, so anyone holding the later state recovers the
-earlier one.  This is a property of any sponge realization of the
-interface of {{deck-interface}}, not of the instantiations chosen
-here, and it is why a stage boundary cannot be an absorb.  A design
-that carried a raw accumulator across one would let a post-handshake
-state compromise re-derive handshake traffic secrets.
+invertible.  If the intervening absorbed blocks are known, anyone
+holding a later state can recover the earlier one.  Carrying a raw
+accumulator across a stage boundary would therefore let a post-handshake
+state compromise re-derive handshake traffic secrets when those
+intervening blocks are known.
 
-A Ratchet breaks the chain because its squeeze returns a function of the
-state, not the state itself.  In the random-oracle model ({{MRH}}), that
-squeeze is one-way against a state the adversary cannot guess:
-recovering the state means querying the oracle on it, which takes
-probability q / 2^m in q queries when the state holds m bits of
-min-entropy.  A boundary that mixes the asymmetric shared secret has
-high m.  The early-to-handshake boundary carries only the PSK, so
-its one-wayness is the PSK's min-entropy ({{psk-entropy}}):  a
-low-entropy external PSK earns no forward secrecy there from the Ratchet
-alone.  A PSK-only handshake absorbs no asymmetric shared secret at all
-({{absent-empty}}), so every one of its boundaries carries that same
-min-entropy.  That conditional one-wayness is what every erasure
-boundary rests on.
+A Ratchet breaks the chain because its squeeze returns a function of
+the state, not the state itself.  In the random-oracle game ({{MRH}}),
+recovering it requires a query on the secret-bearing input.  A boundary
+mixing an asymmetric shared_secret relies instead on the exchange's
+computational hardness and the open chaining analysis
+({{open-analysis}}), not on information-theoretic entropy given the
+public key shares.  The early-to-handshake boundary carries only the
+PSK, so its one-wayness depends on the PSK's min-entropy
+({{psk-entropy}}):  a low-entropy external PSK earns no forward secrecy
+there from the Ratchet alone.  A PSK-only handshake absorbs no
+asymmetric shared secret at all ({{absent-empty}}), so every boundary
+has the same PSK-entropy limitation.
 
-Accordingly a Ratchet sits at each stage boundary where TLS requires
-erasure or compromise isolation:  the early-to-handshake transition and
-the handshake-to-application transition ({{key-schedule}}).  A Ratchet's
-residue is Derive(D, "derived"), an unnamed value that seeds the next
-deck ({{deck-interface}}) rather than leaving the schedule.  The trunk
-is then erased, so what survives the boundary is an octet string and not
-a state.
-
-That the trunk is erased is the State Handling expectation below, not an
-automatic consequence of the squeeze.  The one-wayness argument of this
-section is conditional on it.  At a stage boundary the predecessor is a
-state, so one-wayness is what defeats sponge invertibility.
-
-A key-update generation shares that one-way property but is not a
-Ratchet:  it is a derivation of a retained traffic secret
-({{key-update-generic}}), whose predecessor is already an octet string,
-so there is no state to break.
-
-### State Handling
+The one-wayness argument is conditional on erasing the old trunk.  The
+squeeze does not erase it.
 
 A ratchet's forward secrecy is only as good as the erasure behind it,
 and erasure is local:  no peer observes it, and no interoperability test
-detects its absence.  The rules below are therefore expectations, not
-interoperability requirements, and an implementation SHOULD follow them
-as its platform allows.
+detects its absence.  The erasure rules below are therefore
+expectations, not interoperability requirements, and an implementation
+SHOULD follow them as its platform allows.
 
 An accumulator of a stage should not outlive that stage's ratchet,
 should not be retained as a successor across a ratchet, and should not
-be serialized, exported, or compared.  Squeezed octet-string secrets
-deserve the same discipline as their TLS 1.3 counterparts.
-Handshake-stage traffic secrets and record keys should be destroyed
-when their TLS 1.3 analogues would be, and each stage secret once the
-next stage has absorbed it.
+be serialized, exported, or compared.  Handshake-stage traffic secrets
+and record keys should be destroyed when their TLS 1.3 analogues would
+be, and each stage secret once the next stage has absorbed it.
 
 Every cloned accumulator is a 200-octet copy of secret state, and a
 clone exists for the span of a Derive.  Keeping that window short, and
 zeroizing each clone when it is dropped, limits what a compromise
 recovers.  Compromise of a live accumulator yields that stage's
-underived leaves, as compromise of a stage secret does in TLS 1.3.
-Because a live sponge state is invertible, it also yields the inputs
-absorbed into it, including any asymmetric shared secret:  a further
-reason an accumulator must not outlive its stage.
+underived leaves, as compromise of a stage secret does in TLS 1.3.  With
+the preceding state and other absorbed blocks known, invertibility can
+also expose an absorbed asymmetric shared secret.
 
-On platforms that cannot guarantee erasure these rules are best effort
-({{implementation-considerations}}).
+On platforms that cannot guarantee erasure these erasure rules are best
+effort ({{implementation-considerations}}).
 
 ## Domain Separation {#domain-separation}
 
-The invariant the analysis relies on is that distinct derivation paths
-yield distinct byte strings as deck-function inputs.  It follows from
-two facts, and this document owes both.
+Distinct derivation paths yield distinct byte strings as deck-function
+inputs.  A framed sequence decodes to exactly one list of items:
+frame(x) is uint16(len(x)) || x with no padding ({{conventions}}).
 
-First, a framed sequence decodes to exactly one list of items.  frame(x)
-is uint16(len(x)) || x with no padding ({{conventions}}), so a reader
-takes two octets, reads that many, and repeats:  the item boundaries are
-recoverable from the bytes, and two sequences with different item lists
-differ as strings.
+Every deck opens with frame(schedule_label), then its rooting item
+({{deck-interface}}, {{expand-op}}):  the PSK for the early stage, the
+early residue for the handshake stage, the handshake residue for the
+application stage, and the retained secret for a derivation
+({{key-schedule}}).  The PSK is framed under the tag "psk_" and every
+residue or retained secret under "seed", so the early trunk differs from
+every other deck in its first tag.  Decks that open with the same tag
+are told apart by their seed value and not by their structure.  A path
+over a live stage trunk and a path over a deck seeded with a retained
+secret draw from disjoint label vocabularies ({{key-schedule}},
+{{labels}}).  Within either, every item before the label is a framed tag
+drawn from this document's fixed vocabulary followed by its framed
+value, in an order the schedule fixes, so two paths of the same kind and
+the same length that agree tag for tag can differ only in a value.  Two
+paths that differ at all therefore differ at some item, so their framed
+sequences differ.
 
-Second, distinct paths give different item lists.  Every deck opens with
-frame(schedule_label), then its rooting item ({{deck-interface}},
-{{expand-op}}):  the PSK for the early stage, the early residue for the
-handshake stage, the handshake residue for the application stage, and
-the retained secret for a derivation ({{key-schedule}}).  A residue or a
-retained secret is framed at Init with no tag, and the early stage's
-"psk" tag is the same in every handshake, so two decks of the same shape
-are told apart by that value and not by their structure.  What separates
-them structurally is the label:  a path over a live stage trunk and a
-path over a seeded deck draw from disjoint label vocabularies
-({{key-schedule}}, {{derived-outputs}}).  Within either, every later
-item is a framed tag drawn from this document's fixed vocabulary
-followed by its framed value, in an order the schedule fixes, so two
-paths of the same kind and the same length that agree tag for tag can
-differ only in a value.  Two paths that differ at all therefore differ
-at some item, and by the first fact their sequences differ.
-
-A label does not separate a MAC from a derivation.  The domain byte
-does:  0x04 for the MAC against the deck's native byte, so a MAC and a
-deck derivation are never inputs to the same function
-({{finished-and-binder-mac}}).  Absent inputs are distinguished from
-empty inputs by the framed tag stream ({{conventions}}).  Unkeyed
-transcript hashing is separated at the byte level.  A TranscriptHash
-input begins with the raw octets of "tls13 hash".  Every keyed sequence
-begins with frame(schedule_label), because every deck is Init'd that
-way ({{deck-interface}}):
+Unkeyed transcript hashing is separated at the byte level:
 
 ~~~~
 "tls13 hash"           = 0x74 0x6c ...
@@ -1771,18 +1733,10 @@ frame(schedule_label)  = uint16(6) || "tls13 "
                        = 0x00 0x06 || "tls13 "
 ~~~~
 
-The TranscriptHash input's leading octet is 0x74.  Every keyed
-sequence's leading octet is 0x00.  These cannot coincide, so the
-first octet alone separates a keyed sequence from the transcript
-hash.
+The first octet separates a keyed sequence from the transcript hash.
 
 ## Related Constructions {#related-constructions}
 
-This schedule has the shape of a keyed function over a forked state,
-but keys its XOF with an ordinary framed secret rather than a key
-parameter ({{deck-interface}}).  Relating it to the analyses of keyed
-sponges and forked-state constructions is future work
-({{open-analysis}}).  For keyed sponges the gap is a specific one.
 Proving Derive a pseudorandom function would discharge the
 pseudorandomness assumptions {{TLS13KS}} makes of its extract and expand
 functions and of the MAC deriving its binder values, though not its
@@ -1791,66 +1745,25 @@ keyed-sponge result reaches this construction as specified.  The
 outer-keyed sponge is Sponge(K || m), the key first, with the analysis
 limited to keys occupying whole rate blocks ({{KEYEDSPONGE}}), where
 this schedule frames schedule_label ahead of a framed secret that does
-not fill a rate block.  The inner-keyed sponge keys the capacity
-({{KEYEDSPONGE}}), and the full-state keyed duplex keys its initial
-state ({{FSKD}}), where this schedule keys nothing at initialization and
-absorbs its secret through the rate.  That prefix is not incidental:  it
-is what gives a keyed sequence its leading 0x00 ({{domain-separation}}).
-Closing this needs a keyed-sponge result that tolerates a public prefix
-and a secret that does not fill a block, or a schedule that fits an
-existing one.
-The closest deployed analogue is Disco {{DISCO}},
-a handshake schedule over a forked sponge, though its thin formal
-analysis makes it precedent, not assurance.
+not fill a rate block.  Closing this needs a keyed-sponge result that
+tolerates a public prefix and a secret that does not fill a block, or a
+schedule that fits an existing one.
 
 ## Per-Profile Considerations {#per-profile-considerations}
-
-The schedule-wide analysis both profiles share is in
-{{cryptographic-analysis}}, {{erasure-boundaries}},
-{{domain-separation}}, and {{related-constructions}}.  The two profiles
-are structurally identical and differ only in the permutation
-({{deck-schedule}}); this section states what is specific to each.
 
 ### TLS13_TURBOSHAKE256 {#turboshake-sec}
 
 TLS13_TURBOSHAKE256 targets 256-bit security, which {{RFC9861}}, Table 4
 claims for TurboSHAKE256 and its 512-bit capacity ({{RFC9861}}, Section
-2.2) supports.  The capacity sets that level, not the length of any
-secret.
-
-Everything at that level rests on the 12-round permutation, whose
-assurance {{RFC9861}}, Section 7 places on the cryptanalysis of
-reduced-round Keccak rather than on proof.  That is the assumption this
-profile adds, and neither {{RFC9861}} nor this document proves it.
-
-Capacity, framing, and the derivation graph match the TLS13_SHAKE256
-profile ({{per-profile-considerations}}), which reaches the same target
-over the full 24-round Keccak-f\[1600\] permutation.  A deployment that
-prefers that larger round margin can negotiate TLS13_SHAKE256, the
-conservative choice ({{shake-profile}}).
-
-TurboKMAC256 is introduced by this document:  it is the KMAC layout over
-a permutation of fewer rounds than the Keccak-f\[1600\]-based cSHAKE256
-of KMAC256, so NIST's KMAC security analysis does not cover it, and this
-document does not claim it is a NIST-validated instance of KMAC256.
+2.2) supports.  The 12-round assumption remains open.
 
 ### TLS13_SHAKE256 {#shake-sec}
 
 TLS13_SHAKE256 uses SHAKE256's Keccak-f\[1600\] in place of
 TurboSHAKE256's Keccak-p\[1600,12\] ({{shake-instantiation}}), so it
-carries no reduced-round assumption.  It does not use raw keyed SHAKE256
-for any keyed operation:  derivation is a deck-native
-absorb-then-squeeze session over a framed protocol identifier
-({{expand-op}}), and MAC is the construction of {{mac-op}}, whose key
-block, function name, and customization string provide the keyed-mode
-domain separation that bare SHAKE256 lacks ({{shake-mac}}).
-
-## Out of Scope
-
-QUIC, DTLS 1.3, and Exported Authenticators remain out of scope for both
-profiles ({{companion-mechanisms}}):  an endpoint negotiating a KDF of
-this document MUST NOT use those mechanisms with that connection unless
-a specification defines their derivations for that KDF.
+carries no reduced-round assumption.  Its full 24-round permutation
+supports the same 256-bit target with a larger round margin
+({{shake-profile}}).
 
 --- back
 
@@ -1860,44 +1773,39 @@ This appendix is non-normative.  It compares the TLS 1.3 schedule with
 the deck schedule of {{deck-schedule}}.  Both profiles share this
 schedule and differ only in the underlying permutation, so the
 comparison applies equally to TLS13_TURBOSHAKE256 and TLS13_SHAKE256,
-and the figure labels the deck side generically.  With finished_key and
-binder_key as dedicated MAC keys ({{finished-and-binder-mac}}), the two
-schedules are close structurally, not only in the values they produce:
-both carry the same named intermediates, binder_key and finished_key,
-into the same MAC step, and both produce the same six traffic and main
-secrets from the same three trunk inputs.
+and the figure labels the deck side generically.
 
 ~~~ aasvg
- RFC 9846, Section 7.1            This document, the deck schedule
+ RFC 9846 and RFC 9258            This document, the deck schedule
  =====================            ================================
 
  HKDF-Extract(0, PSK)             E = Init()
-                                  Absorb(E, "psk", PSK)
+                                  Absorb(E, "psk_", PSK)
          |                                |
          v                                v
 +-----------------+              +=================+
 |   Early Secret  |              |  E accumulator  |
 +-----------------+              +=================+
          | Derive-Secret(., Lbl, TH)      | Derive(E, Lbl, TH)
-         +-> "c e traffic"  TH_CH         +-> "c e traffic"
+         +-> "c e traffic"  TH_CH         +-> "cet"
          |   = c_e_traffic                |   = c_e_traffic
-         +-> "e exp master"  TH_CH        +-> "e exp master"
-         |   = e_exp_master               |   = e_exp_master
-         +-> "ext binder"  (no context)   +-> "ext binder"
+         +-> "e exp master"  TH_CH        +-> "ees"
+         |   = early_exporter_secret      |   = early_exporter_secret
+         +-> "imp binder"  (no context)   +-> "ibk"
          |   = binder_key                 |   = binder_key
          | Derive-Secret(., "derived")    | Ratchet(E) emits residue
          v                                v
- HKDF-Extract(derived, (EC)DHE)   H = Init(residue)
-                                  Absorb(H, "dh", DHE)
+ HKDF-Extract(derived,            H = Init(residue)
+   asymmetric shared secret)      Absorb(H, "shs_", shared_secret)
          |                                |
          v                                v
 +-----------------+              +=================+
 | Handshake Secret|              |  H accumulator  |
 +-----------------+              +=================+
          | Derive-Secret(., Lbl, TH)      | Derive(H, Lbl, TH)
-         +-> "c hs traffic"  TH_SH        +-> "c hs traffic"
+         +-> "c hs traffic"  TH_SH        +-> "cht"
          |   = c_hs_traffic               |   = c_hs_traffic
-         +-> "s hs traffic"  TH_SH        +-> "s hs traffic"
+         +-> "s hs traffic"  TH_SH        +-> "sht"
          |   = s_hs_traffic               |   = s_hs_traffic
          | Derive-Secret(., "derived")    | Ratchet(H) emits residue
          v                                v
@@ -1908,64 +1816,45 @@ secrets from the same three trunk inputs.
 |   Main Secret   |              |  T accumulator  |
 +-----------------+              +=================+
          | Derive-Secret(., Lbl, TH)      | Derive(T, Lbl, TH)
-         +-> "c ap traffic"  TH_SF        +-> "c ap traffic"
+         +-> "c ap traffic"  TH_SF        +-> "cat"
          |   = c_ap_traffic               |   = c_ap_traffic
-         +-> "s ap traffic"  TH_SF        +-> "s ap traffic"
+         +-> "s ap traffic"  TH_SF        +-> "sat"
          |   = s_ap_traffic               |   = s_ap_traffic
-         +-> "exp master"  TH_SF          +-> "exp master"
-         |   = exp_master                 |   = exp_master
-         +-> "res master"  TH_CF          +-> "res master"
-         |   = res_master                 |   = res_master
+         +-> "exp master"  TH_SF          +-> "exs"
+         |   = exporter_secret            |   = exporter_secret
+         +-> "res master"  TH_CF          +-> "rss"
+         |   = resumption_secret          |   = resumption_secret
 ~~~
-{: #comparison-figure title="RFC 9846 7.1 and the Deck Schedule"}
+{: #comparison-figure title="TLS 1.3 with Imported PSKs and the Deck Schedule"}
 
-The left column writes (EC)DHE, the name used before {{RFC9846}}
-renamed that input the asymmetric shared secret, which is the term this
-document uses elsewhere.  The figure's fixed column width does not admit
-the longer name.
+The imported-PSK binder branch uses the label from {{Section 5.2 of
+RFC9258}}.
 
-The residue is a well-defined, byte-exact value, the analogue of TLS
-1.3's Derive-Secret(., "derived", ""), and therefore a useful checkpoint
-for tracing and test vectors.
+Both schedules derive finished_key from binder_key or from a traffic
+secret by the corresponding label, "finished" on the left and "fin" on
+the right, feeding the same MAC step:  HMAC on the left, MAC on the
+right.
 
-Both schedules root binder_key at the same Early Secret analogue:  TLS
-1.3 derives it from Early Secret, and this document derives it (a
-Derive) from the early trunk E, which is that analogue, as a third early
-leaf beside c_e_traffic and e_exp_master ({{finished-and-binder-mac}}).
-Both then derive finished_key from binder_key or from a traffic secret
-by the same "finished" label, feeding the same MAC step:  HMAC on the
-left, MAC on the right.
-
-The schedules diverge in topology, not in which named secrets exist:
-TLS 1.3 threads every stage transition through a discrete HKDF-Extract,
-salted by a Derive-Secret("derived") call, where the deck schedule
-absorbs each stage's inputs into one running state and crosses the
-boundary with a single Ratchet.  The Finished and binder MACs, record
-keys, exporters, resumption PSK, key updates, and PSK import each
-replace their TLS 1.3 counterparts one for one, and {{shapes}} gives the
-per-shape rules.
+The Finished and binder MACs, record keys, exporters, resumption PSK,
+key updates, and PSK import each replace their TLS 1.3 counterparts, and
+{{shapes}} gives the per-shape rules.
 
 ## Invocation Count {#invocation-count}
 
-The figure of {{comparison-figure}} shows structural closeness.  This
-table quantifies it.  Both profiles share the deck schedule and thus
-the same invocation count, given once for both.
-
 The handshake counted is one full 1-RTT handshake that offers and
-selects a PSK, uses the asymmetric shared secret, accepts 0-RTT early
-data, issues one NewSessionTicket, performs one KeyUpdate in each
-direction, and serves one TLS-Exporter request:  the maximal common case
-both {{Section 7.1 of RFC9846}} and {{key-schedule}} cover completely.
-Counts are per endpoint.
+selects a PSK, uses the asymmetric shared secret, and accepts 0-RTT
+early data:  the case both {{Section 7.1 of RFC9846}} and
+{{key-schedule}} cover completely.  Derivations after the handshake,
+for a NewSessionTicket, a KeyUpdate, or a TLS-Exporter request, are not
+counted.  Counts are per endpoint.
 
 A deck invocation is one Derive, MAC, or Ratchet call, matching the
 One-Shot Equivalence of {{deck-interface}}.  A TLS 1.3 invocation is
 one HKDF-Extract, HKDF-Expand-Label, or HMAC call.  Absorb builds an
-input sequence rather than invoking the primitive and is not
-separately counted, matching how {{shapes}} already accounts for deck
-operations.  Transcript-hash computations are excluded from both
-columns:  both schedules compute the same checkpoints over the same
-messages.
+input sequence rather than invoking the primitive and is not separately
+counted, matching how {{shapes}} already accounts for deck operations.
+Transcript-hash computations are excluded from both columns:  both
+schedules compute the same checkpoints over the same messages.
 
 | Derived value | Deck (this document) | TLS 1.3 |
 |---|---|---|
@@ -1994,42 +1883,11 @@ messages.
 | resumption_secret | 1 (Derive) | 1 (Derive-Secret) |
 | client ap traffic key + iv (gen 0) | 1 (Derive) | 2 (Expand-Label) |
 | server ap traffic key + iv (gen 0) | 1 (Derive) | 2 (Expand-Label) |
-| client_application_traffic_secret_1 | 1 (Derive) | 1 (Expand-Label) |
-| client ap traffic key + iv (gen 1) | 1 (Derive) | 2 (Expand-Label) |
-| server_application_traffic_secret_1 | 1 (Derive) | 1 (Expand-Label) |
-| server ap traffic key + iv (gen 1) | 1 (Derive) | 2 (Expand-Label) |
-| resumption PSK (NewSessionTicket) | 1 (Derive) | 1 (Expand-Label) |
-| TLS-Exporter output (one request) | 1 (Derive) | 2 (Derive-Secret + Expand-Label) |
-| Total | 28 | 39 |
+| Total | 22 | 30 |
 {: #invocation-count-table title="Invocation Count for One Full Handshake"}
-
-Of the deck total, 3 invocations are MAC (the PSK binder and both
-Finished values) and 25 are Derive or Ratchet.  Of the TLS 1.3 total, 3
-invocations are HMAC and 36 are HKDF-Extract or HKDF-Expand-Label.  The
-schedule crosses two ratchets ({{key-schedule}}), so the handshake stage
-is entered by absorbing into a new trunk rather than by a third ratchet:
-the TLS 1.3 extract it replaces has no deck counterpart, as {{shapes}}
-states.
-
-The deck is lower at the operation level in every row where TLS 1.3
-needs two Expand-Label calls against this document's single Derive that
-outputs Nk + Nn octets and splits the result ({{record-keys-generic}}),
-and in the three rows where TLS 1.3 forms a stage secret with an
-HKDF-Extract that this document reaches by absorbing or seeding a trunk.
-Each ratchet, by contrast, matches its Derive-Secret("derived") call one
-for one.
-
-The operation count is not the cost, because a single invocation costs
-more than one permutation call whenever its framed input exceeds the
-rate.  The composed security argument of {{cryptographic-analysis}} does
-not rest on either count.
 
 ## Permutation Count {#permutation-count}
 
-An invocation is not a permutation call.  Both profiles absorb in
-rate-sized blocks, 136 octets in either instantiation
-({{turboshake-instantiation}}, {{shake-instantiation}}), so an
-invocation whose framed input exceeds the rate costs more than one call.
 {{permutation-method}} gives the per-operation counting rule.
 
 Over the handshake of {{invocation-count}}, counted by that rule and
@@ -2038,69 +1896,39 @@ excluding the transcript hash as that table does, with a 64-octet PSK, a
 
 | Schedule | Permutation calls |
 |---|---|
-| Either profile of this document | 39 |
-| TLS 1.3 with KMAC primitives | 117 |
-| HKDF-SHA3-256 over the same permutation | 156 |
+| Either profile of this document | 29 |
+| TLS 1.3 with KMAC primitives | 90 |
+| HKDF-SHA3-256 over the same permutation | 120 |
 {: #permutation-count-table title="Permutation Calls for One Full Handshake"}
-
-The count is set by input lengths, not by which primitive produced
-them.  The shared secret is the only key-exchange value the deck
-absorbs.  A key share, a KEM ciphertext, and the handshake messages
-never reach it, since each leaf binds its stage's transcript only
-through its fixed-length hash ({{implementation-considerations}}).  A
-pure-ML-KEM handshake, and an ML-KEM hybrid whose components are each
-absorbed separately ({{key-schedule}}), cost the same as x25519 at these
-lengths.
-
-Both profiles reach the same count:  they share the schedule and frame
-the same fixed schedule_label at Init ({{deck-interface}}), so every
-sequence opens with the same 8-octet frame.
-
-A keyed sponge does not carry HMAC's two nested hashes per operation or
-KMAC's per-call re-keying.  The step from 117 to 39 is structural, not a
-further gain from Keccak:  both schedules run the same permutation, and
-the deck spends less only because it carries one state instead of
-re-keying a primitive at every call.
 
 # Permutation-Counting Method {#permutation-method}
 
-This appendix is non-normative.  It gives the per-operation rule behind
-the permutation counts of {{permutation-count}}.
-
-The framing is not small next to the rate:  frame(schedule_label) is 8
-octets and a framed 64-octet secret or transcript hash is 66, so a leaf
-binding both a key and a transcript checkpoint spans two blocks.
+This appendix is non-normative.
 
 For an input of n octets producing L octets, a sponge over the profile's
 permutation applies floor(n / 136) + 1 permutations while absorbing,
-since the padding rule always appends at least one octet, and
-ceil(L / 136) - 1 more while squeezing, since the first output block is
-read from the state the absorption left.
+since the padding rule always appends at least one octet, and ceil(L /
+136) - 1 more while squeezing, since the first output block is read from
+the state the absorption left.
 
 Sibling leaves that bind one transcript checkpoint, a stage's traffic
 secrets, share its absorption.  Because the context precedes the label
 ({{deck-interface}}), the running deck is cloned after the checkpoint
-is absorbed, so the checkpoint enters the permutation once for the
-stage and not once per leaf.
+is absorbed, so the checkpoint enters the permutation once for the stage
+and not once per leaf.
 
-HKDF-SHA3-256 over the same handshake spends 156 permutation calls,
-four for each of its 39 invocations.  Each HKDF-Extract, and each
-HKDF-Expand-Label of at most 32 octets, is one HMAC-SHA3-256, and one
-HMAC-SHA3-256 is four permutation calls:  two for the inner hash of
-(K XOR ipad) || m and two for the outer hash of (K XOR opad) || digest,
-each filling one 136-octet block and padding into a second.  That
-two-nested-hashes-per-operation factor follows from HKDF's definition
-over HMAC, so no HKDF instantiation removes it.
+Each HKDF-Extract, and each HKDF-Expand-Label of at most 32 octets, is
+one HMAC-SHA3-256, and one HMAC-SHA3-256 is four permutation calls:  two
+for the inner hash of (K XOR ipad) || m and two for the outer hash of (K
+XOR opad) || digest, each filling one 136-octet block and padding into a
+second.
 
-Replacing HMAC with KMAC narrows the gap but does not close it.  The
-NIST primitives of {{fips-schedule}}, KMAC for extraction, expansion,
-and the MAC, spend 117 permutation calls, three for each of the same 39
-invocations.  KMAC runs one cSHAKE where HMAC nests two hashes, but each
-call still absorbs a bytepad-framed customization block and a
-bytepad-framed key block before its message, so it saves one of HMAC's
-four permutations and not two.  That is a quarter below HKDF-SHA3 and
-three times this document, which frames each key inline and carries the
-running state a fresh KMAC call rebuilds.
+TLS 1.3 with KMAC ({{SP800-185}}) in place of HMAC, for extraction,
+expansion, and the MAC, spends 90 permutation calls, three for each of
+the same 30 invocations.  KMAC runs one cSHAKE where HMAC nests two
+hashes, but each call still absorbs a bytepad-framed customization block
+and a bytepad-framed key block before its message, so it saves one of
+HMAC's four permutations and not two.
 
 # Implementation Considerations {#implementation-considerations}
 
@@ -2135,10 +1963,9 @@ offered, and only the record-key output lengths depend on the suite
 
 A binder and a Finished derive their MAC key from different base
 secrets, binder_key against a handshake traffic secret, though both
-derive it under "finished" ({{finished-and-binder-mac}}).  An
-implementation that feeds a binder's MAC key from the Finished path's
-base secret produces a wrong binder that no Finished-path test vector
-detects.
+derive it under "fin" ({{finished-and-binder-mac}}).  An implementation
+that feeds a binder's MAC key from the Finished path's base secret
+produces a wrong binder that no Finished-path test vector detects.
 
 In garbage-collected runtimes, zeroization is inherently best effort:
 the runtime may have copied or moved key material, and erasing every
@@ -2159,41 +1986,66 @@ code with the first, but written by the same author.  They are therefore
 not yet the independent evidence this appendix calls for, and they may
 change.  Each profile's permutation is pinned against published vectors,
 TurboSHAKE256 against those of {{RFC9861}} and SHAKE256 against those
-of {{FIPS202}}.  What rests on a single reading of this document is
-the schedule itself:  the framing, the field order, and the context
-tags.  That is the part most likely to move.
+of {{FIPS202}}.  What rests on a single reading of this document is the
+schedule itself:  the framing, the field order, and the context tags.
+That is the part most likely to move.
 
 Every secret and checkpoint is TranscriptHash of a short ASCII string,
 so the inputs are reproducible from this document and the same values
 serve as TranscriptHash vectors:
 
 ~~~~
-PSK     = TranscriptHash("psk")
-DHE     = TranscriptHash("asymmetric shared secret")
-epsk    = TranscriptHash("epsk")
-TH_CH0  = TranscriptHash("truncated ClientHello")
-TH_CH   = TranscriptHash("ClientHello")
-TH_SH   = TranscriptHash("ClientHello..ServerHello")
-TH_SF   = TranscriptHash("ClientHello..server Finished")
-TH_CF   = TranscriptHash("ClientHello..client Finished")
+PSK           = TranscriptHash("psk")
+shared_secret = TranscriptHash("asymmetric shared secret")
+hybrid_1      = TranscriptHash("hybrid component 1")
+hybrid_2      = TranscriptHash("hybrid component 2")
+epsk          = TranscriptHash("epsk")
+TH_CH0        = TranscriptHash("truncated ClientHello")
+TH_CH         = TranscriptHash("ClientHello")
+TH_SH         = TranscriptHash("ClientHello..ServerHello")
+TH_PRE_SF     = TranscriptHash("ClientHello..before server Finished")
+TH_SF         = TranscriptHash("ClientHello..server Finished")
+TH_CF         = TranscriptHash("ClientHello..client Finished")
 ~~~~
 
-ClientHelloInner.random is the 32 octets 0x00 through 0x1f.  Record keys
-use Nk = 16 and Nn = 12.  The exporters use label "test label" and
-context "test context" with a 32-octet output.  The two resumption
-values use ticket_nonce "nonce" and an empty ticket_nonce, which is
-omitted rather than framed ({{expand-op}}).  The ImportedIdentity has
-external_identity "external psk identity", an empty context, and
-target_protocol 0x0304.
+The PSK-only and hybrid fixtures use the existing PSK and transcript
+checkpoints.  The PSK-only fixture omits Absorb(H, "shs_", ...) entirely
+({{absent-empty}}).  The hybrid fixture absorbs hybrid_1 and hybrid_2 in
+that order, with a separate Absorb(H, "shs_", component) call for each
+and no concatenation ({{key-schedule}}).
+
+The server Finished uses TH_PRE_SF, the checkpoint immediately before
+that message.  TH_SF includes the server Finished and remains the
+checkpoint for application traffic and exporter secrets.  A client
+Finished would use TH_SF if no handshake messages, including client
+authentication messages, intervene.  These checkpoints are synthetic
+inputs, not hashes of encoded handshake messages.
+
+ClientHelloInner.random is the 32 octets 0x00 through 0x1f, and the ECH
+confirmations take TranscriptHash("ech_conf_messages") and
+TranscriptHash("hrr_ech_conf_messages") as their transcript hashes.
+Record keys use Nk = 16 and Nn = 12.  The exporters use label "test
+label" and context "test context" with a 32-octet output.  The two
+resumption values use ticket_nonce "nonce" and an empty ticket_nonce,
+which is omitted rather than framed ({{expand-op}}).  The
+ImportedIdentity has external_identity "external psk identity", an empty
+context, and target_protocol 0x0304.  The imported-PSK binder uses this
+ipsk in a fresh early trunk and TH_CH0 as its transcript hash
+({{finished-and-binder-mac}}).  The non-imported external-PSK binder
+uses the same PSK input and TH_CH0 as the resumption binder.
 
 Its target_kdf carries a placeholder TLS KDF Identifier, 0x0100 for
 TLS13_TURBOSHAKE256 and 0x0101 for TLS13_SHAKE256.  These are a
 convention of this appendix and not a request:  {{iana-considerations}}
 asks for two registrations without naming values, and the registry
-assigns that range under Specification Required, so other values may be
-assigned.  If they are, the ipsk vectors must be regenerated.  Every
-other value here is independent of the assignment, because each
-derivation takes its transcript checkpoint as an argument.
+assigns that range under Specification Required, so other values may
+be assigned.  If they are, the ImportedIdentity, ipsk, and imported-PSK
+binder vectors must be regenerated.  Every other value here is
+independent of the assignment, because no other derivation absorbs a
+code point.
+
+The key_block and app_traffic_secret_1 values are derived from
+c_ap_traffic.
 
 ## TLS13_SHAKE256 Vectors
 
@@ -2217,6 +2069,9 @@ TH_CH:
 TH_SH:
   df71253c5be0dacc544f06b8124ed65474bf4be5be8d63bab10018a5dfbbed6c
   bb0371f2a1649157053b23c7d25eadd1bc400fc05ba8510549d2930a374ca54a
+TH_PRE_SF:
+  5d628bb8f07831940433f523228ee4f0f52708a93a1a0230d04ed88399d2d84f
+  692ff94d09c52427fc8583fc1ec5e399a72ca01914d87a72f9e652906350f356
 TH_SF:
   63fc9f9ca068104fa93d078e5fdaff21307d9f2e3b48751dd3239d362c8c467a
   41a6d37c11d58da2a22c263f52609f54a57c6470e6ccd02e6bce36cd4de2adaf
@@ -2227,105 +2082,157 @@ TH_CF:
 # Early stage
 Init() sequence:
   0006746c73313320
-Absorb(E,"psk",PSK) contributed:
-  000370736b004066eccc8045416ec22d1379ac2298aa749cb0bb86db4fca5578
-  365a7c75bd244a3044aa9ba8ae404b2da7860a2e85af8998ec43aab11c2a1172
-  56e29d966eddd7
+Absorb(E,"psk_",PSK) contributed:
+  000470736b5f004066eccc8045416ec22d1379ac2298aa749cb0bb86db4fca55
+  78365a7c75bd244a3044aa9ba8ae404b2da7860a2e85af8998ec43aab11c2a11
+  7256e29d966eddd7
 c_e_traffic:
-  8dc314eeb21286fbbf04003d6278ea72fe0b13fe33ea5007aff15f0e4a41d759
-  e915c5002d2f5453c372b42ddd4bbce4151b6783cff709c1e9dea4526555e262
-e_exp_master:
-  deb93e40618718411940505fee4f7c269cf6a43c472b6c975f04b8650dc7597c
-  5b4cedbd9f4a7f65280c2b4a0bc5ffdb020dd33c8ae18872267d8eee8e32f91c
-binder_key (res binder):
-  df739c3daffcf27d839bb50f4a5ceb320949b48c150efff26eb41b152c96ebf6
-  c8ebe92c567b627bbcbf879699e560615ca9e77a4d6b12db03ca0b20a03e12a6
-Absorb(E,"psk","") contributed:
-  000370736b0000
+  a6e65fce65ede135fc4af4b1a7563dfce51bef8ddab972140b8c6c7ee5f58460
+  5fb5cd6319432860868a3ec22b956bdda000efa888e6755d505539cb7c428e52
+early_exporter_secret:
+  fa583c676002a4908c8be6ecfd187826af5b7ca923461919b7a8029630594e34
+  604736eec7debe4e50e29b74fce85faba81729ee0c2cb750eb18493311b88437
+binder_key (rbk):
+  329d9f6ae5c673273919775f4861ad63595695e60d29cdc615c5ca372152abc8
+  15bb86340dec97b7c8591673d805c98b6c6c7292f48e78c8e857a17da52f0900
+Absorb(E,"psk_","") contributed:
+  000470736b5f0000
 
 # PSK binder
 finished_key (binder):
-  a464ab156a0e7d96613123a32df837b5602d9b13d60f4abdd02783a765278f56
-  3b6893fd4ce4f1f00bd0be0a2cec8c22c4bcb35d86b93b52dfd95dad5b68f520
+  651f73a5742c17b120d9cc656258b6ccdb422d1fdc82ded2be0f76790367b865
+  55202110f1c81aae0f171608fcbbb9d35c6eefff5c27934a0fa4040e1bb80696
 binder verify_data:
-  216930054442f25ec1e319c3167328d9999125b993a740d02fd788e70c2dfe80
-  aa9d2af76cbddb861c9109b8f1b5fb957cd33dbdd52900e80adfb99a569a4e9f
+  8a30c8c23b9ad5ff1cdce39fa2175b9237c5dabb81f64a5ca5a11979b51b8098
+  7bdf2b96c20aaf29b45f26ad0adf93105df9f1c82a5d6124b480fa4efff02df8
+
+# External PSK binder
+binder_key (ebk):
+  c8d18ca9fcc3276e8770b009b077f18a01b6f7442bb3e7afc5b156e6b3cd62bb
+  e27e0283a69b2c64afcc811779051152d256427104d4c45564d741ed1a7686f1
+finished_key (external binder):
+  b31ef8da3c20817cc5b2dc06336671f117edafb5fc276b8d58a3d731e2ae817c
+  b548150d6591060e4a3c263d9311bee081399b996d96be0c4880e863e56cbb16
+external binder verify_data:
+  b44c1f511878261b1a2d09379a02ea96674b84ea3e256fe5560c0c86485131c2
+  bb28fc7140adbd224be3d94f1c33d1915eab87cc23bacaf7e3d6b0c0f851040c
 
 # Handshake stage
 residue E->H:
-  55321ee114b95625d9c8103f88e32643ee4a1d078ece6466a9cd090be610547e
-  1058452cd6a87eeb50f33d298b7101ec93e6bb864f0c59ddad138ce2b05cdd8f
+  d3225b5f9184782654e20ecddf4c0fe209e93c69cb7aab87c83b85ad0d5fc4d9
+  ba2841f2380ee73e827712744d5a338b8d6b0c10faf864f7b836bba146a5482a
 c_hs_traffic:
-  8919262f4bf1e009be8a2db7bea5fd69d53122ac3a30b53055baa4b8fbce103b
-  2595d7224424b209bf973f57c6ba025eda9bfd4251360b08ba6f1086933fb813
+  9fda6bc88dd190ba2840e2db71e5ea12af1baf7c691c9d9685ed8c014393841f
+  531d9b907c8350c509115d7032b7fb8df87c266843c81465ca3042733f939733
 s_hs_traffic:
-  b8f14d8627a58c305c312d373f10ab6d8afbb5db7df4647e55b4417abe4c742a
-  8375494391555e06462758315e1c6180a20a11067cda2f9d8efa865ed8d628f0
+  594fc92b14c5a6a9e3bbcc1807b8ba37020ae94acb8d0da8e83a4582e2ffb8ae
+  ba6d793d62ef096b98b5e49ed73b87cadb689a9ebd53d8c1243d6a6723d9d731
 
 # Finished
 finished_key (server):
-  6193189f09f3d8ea91e8359152fed882614e29a2c1e9f144da6dea191be96a0c
-  5ee48cd6a7da4d1a148d964281aedc555747f97891c6b064c58010bed37539e7
+  79de2c931213af6ffc6cc9d6e40c0f2febadaa6c89218dca6ab3a5f339ffc26f
+  b095792372fb5066d94c3207e0174f16d10fd4c5d62a2cdab4630a70f4a84d3e
 server verify_data:
-  5b880210c58a90c4630af11561a5cc47937800441d698ebf3087f6b4acc134ed
-  146e5e27d222540a1d4cbc7dd6b70acea06a36e289dcf7dec2e49876f2c759a1
+  126ed9b908180dc1daf5dd48950b0146cae019214af48ef08afe5af87b49295d
+  ee7f4d356540ad48ae5231db6af0532e16c5e4e6ecd4e93f02ba0adb1331e9e0
 
 # Application stage
 residue H->T:
-  ce284cacaa34498dde8b98c62ff7dcba8404a58801109a05540d57593140b29c
-  349d0964d9a07211a23fad1019d8bfc86f9f125604705bc83322378901668d6e
+  b6c8cfb2de74b9f75fb0375325c1278533c30b99b6828e2de84022a3398b94d1
+  78d15c89403fdb01db3bc60e146a40e552786f1c522e6efe6ab6c41c9867c15c
 c_ap_traffic:
-  4c0616b42d11ec3fa6d8269f9117a67d2f2dae89f649879771515540c57d6524
-  79460868a8dd5129c6c72ffe770e7d7a2bbec428074f6cfd0172c46280699b37
+  e75c0da3d3ada53e0a94cb67b40602678c564b4222921ed1162d10023fedd511
+  c936e8d5e9768a4b96ff283204c56b9d62a43af4605c4e10c395f88a833b039f
 s_ap_traffic:
-  ab1b41c63566f88f27f4cfe27ea4ccfb571d6a70777e7c5dbc082dc33b0a44a7
-  04e2bbbf9126f2b501e325c070e6e8e56cf6bb54a33495298f47dafad755e862
-exp_master:
-  8dca7254b7fd66f9f55fa2603e125e4475ae0596d15398f3402d1fc96387c0e2
-  5310718a071b4f4cc4e3e62d7409f7c5ec68396ec1923fa70184e064ada15e85
-res_master:
-  f3074f8f48a8df60be7a81f1d81da85cfd227aa64e3ffcd29410186aa0602669
-  61e405e61fad9a79ecf7501d8759563f62e16e7e4afb143777fb64b50569ca60
+  d2e2fdf3fd8b08824611934eb35e10f29cc0fac427b56581b8a19fd9a532573d
+  dc71f1840d592a9e7c369499302b835a9ab06e84570bf6d21df39ca12eaa8d90
+exporter_secret:
+  b6d2b9eb185e83b87f1231a1908b2ae9c5424aa55a19bad54d723957b1530b21
+  48991557cd7225ad19f753de0e62f2d8b00649d8ffcdcb385a12104b862216af
+resumption_secret:
+  deb3cfafd22de1b8d5217c725e54974bf7801b69090f72ecfc366a2afd5ce7ed
+  2dd0b4243d9f5049de13fa538c71ec3ef653e51d9815f0df5dda423ccb8f6923
 
 # Record keys (Nk=16, Nn=12 of TLS_AES_128_GCM)
 key_block:
-  1abdab692ea5277cb7c518a4bf074674fe83f8de919be76e348d308c
+  4d5ca62dccfd7c15e55a84a20d44a606dd0aa4e32abce81fc29b865e
 write_key = key_block[0..16]:
-  1abdab692ea5277cb7c518a4bf074674
+  4d5ca62dccfd7c15e55a84a20d44a606
 write_iv  = key_block[16..28]:
-  fe83f8de919be76e348d308c
+  dd0aa4e32abce81fc29b865e
 
 # Key update
 app_traffic_secret_1:
-  b9b387bb48ed7250afb536185437b7d13de8ecf535b1f94bef48b435cf6ae8ed
-  b0a9ef61af372a6ce289a6bcf2f6398314fa7bdd6f9952501da956fbe481b860
+  ff94705ba655d4a98894335c02ad541f4624a0fa83dc70dbb5e57b576fcd313f
+  db4b9533a5e90097b0cdc31ef569ea4c42d3e3c1fcb0258bd104e05369716a81
 
 # Resumption
 resumption_psk (nonce):
-  e946d2b2bd97c664e37963a0d552a5aa884b5ef2e08a94c34d2fa95b9137b823
-  82f75c137bdae2c4063044b6c102e3b42feac3458577a77c80026747f7e63033
+  cc94ce687fb657fe1cf3acb2ea53223568d6eedbfbfb95f108f4dac66317d903
+  d3bbc76b0be1d91bd6e0d5283865e13c899a8a9a11ccfb0fe190e70cdaad1cfb
 resumption_psk (empty nonce):
-  250b68c2d2a19dc8ec2e9510dfa279b5e5c13be9f6c110e37db01eec617048e6
-  e875986aece53ad2ea62e4489a31857222394bfbd3964d637df91614f7a8a78f
+  709d24fa3569bc59cf06f1d8ae2497101302cedb8e460829beae18c3a3b3ebf1
+  fbec85a5c27881d12f68690db2c3c24be3f784318c16a85bb6adc65ef8af22e1
 
 # Exporters
+exporter_label_secret:
+  55b6277322fba611e66f608cc5c937b961f67868b59e8bc9f29581036e713690
+  191fbbc656bc9abb53c3e75e13c7f2ddbaf4861bc7d27f10e5027810ec52a15c
 TLS-Exporter (32 octets):
-  9577a6257c074295eef984f5938ffe10a874213a0656c24bfa64726986906686
+  f09c0f94a9261fb7ab02171f6e9448b47ce6f34e1950b15d3b2be17072620e63
+early_exporter_label_secret:
+  fe7331c50be5b4b0ead154504e29e23357b283c1b29ee5c6f7779849f3c64f43
+  3897018a4387f32440173aa2abd92de582ff95e4845e4ea0426f096157b83cf2
 early exporter (32 octets):
-  7e39f663acea3827736eb496a412a77e255156b9f8a113920b93aec9123d565c
+  387d4172845fdab9b930d42b49ef82c0ed1758b69c99bed13f98eb091d9be190
 
 # PSK import
 ImportedIdentity:
   001565787465726e616c2070736b206964656e74697479000003040101
-ipsk (derived psk):
-  dd0536afa369d9437a398ae510b475a9081cac1f012ff501f49cf7d113f906ba
-  d9601569986b22d88043e75907911a9c7345771012d0f9cba962670b0a929a1b
+ipsk (ipk):
+  1f45ffacb3bc31fed8850c58d208fbcfdd629f3ba590470356ab1b66424d6a1f
+  ef9b93de18f8370e2aee51f844a6b85e8098dd8e3901a608d507b621977c8bce
+
+# Imported PSK binder
+binder_key (ibk):
+  da77bf5dc048471e9634e26ad55a6d2414ca52195bc4ea7964c7d2f095612002
+  6f8fc2132eba87aa319a8557146082b4a50f8b8a90836a328495a493ecb5749e
+finished_key (imported binder):
+  cb43195254c34dd8dd21cdfa99a4d3488fcd11f2047b1a4ffb5bfb490536635b
+  7935331f9e9b5c37948e01ec2b73d20a67bf77f2c997dc09bd9dc6bdbd944ff9
+imported binder verify_data:
+  94eddc50b3576999c6a2bcb5639e3f8c826c7817462e575f28df7e5353620c0d
+  9384df0455991736cf03f788619c0c82066648e80f3b67df0c8466108e62333a
 
 # ECH acceptance confirmations
 accept_confirmation:
-  c5450cace00affb1
+  46be340e18673ab0
 hrr_accept_confirmation:
-  69e7dc04a9f22121
+  1ee441e50a2762ff
+~~~~
+
+~~~~
+# PSK-only
+c_hs_traffic (PSK-only):
+  e0ab811e34a7026586f6514a8d44877c5b849e707bc4e627bdf7c086c6a85646
+  ed6081654a02acde603a5296011ad5bc46738e0e84f661ddc298bc544435fb40
+s_hs_traffic (PSK-only):
+  d929a47d730a8a55f71c0a27539850705f3a5e61bff48f6bb18a169752282c8a
+  43a36bb6dbd554d438afbd5f3bf18c13a09c3432709ab6012ff16d7269e0ce73
+c_ap_traffic (PSK-only):
+  43f2b9c7574c16870c00698693a64ca19345e2b7133392349a17c54f8ba38adb
+  6cfa6a82badc71d432e267fea4ff6ff73ec7d88b5fadffaf6891b9258f09954c
+
+# hybrid
+c_hs_traffic (hybrid):
+  2bab27300224fa295fa4902de9ce7629667de0da042aceffe72705df148c5c1d
+  a68034c847bb188dc9f64a5ee78c1b82a2511ce3f9c40cf92173e3d08f9b83d1
+s_hs_traffic (hybrid):
+  39fc698e23a46015524eebfcec1e8887975c7b2c189909139ef45e54bd9e5fd9
+  11f11f822cdaaa6f9a2156ebb00c116723cf5d68ea958dbd5f04b17c113a79e1
+c_ap_traffic (hybrid):
+  7ed2add97208d6a43e4f86b9f3ef4693489c89fdb292b6902b4c77c883684375
+  4d49dcc41797a6855e2e6a59b173a6456410b4646dd436f37b9882fc52b15a74
 ~~~~
 
 ## TLS13_TURBOSHAKE256 Vectors
@@ -2350,6 +2257,9 @@ TH_CH:
 TH_SH:
   f7dd7e7ae81ce9c3e4a2b5b06ee80b7eb1134042cf26403135a0f79f478b5c25
   673e7d9bc81fc5fa8eb8ebb62e55d65decd3ca80c3162e50b418951d15076f36
+TH_PRE_SF:
+  53c23a8f1bcd7cf6b0c9f98547f28a5b78a46993ed759c2d0c7f2ecd074a8d50
+  00f34e02ca2df1dd1457c19280aa7fa805bd98080d6f06a592ef82835ed94acc
 TH_SF:
   a3e0515a234d20f5a35d4afe1f034327c45b0ac71275c2cddf8379fb9383d89a
   82da608a7cd51a0c1ae5104772e80f814403dbb5ce6d365b958d00533af1a494
@@ -2360,105 +2270,157 @@ TH_CF:
 # Early stage
 Init() sequence:
   0006746c73313320
-Absorb(E,"psk",PSK) contributed:
-  000370736b004068ced33b52672668e960da11aa8a214f786ec8bba642feb481
-  20b4c413de599250e219a151e0a33412fd20d408ff40e62484dbfebb9d513916
-  d0ead5c3d6defe
+Absorb(E,"psk_",PSK) contributed:
+  000470736b5f004068ced33b52672668e960da11aa8a214f786ec8bba642feb4
+  8120b4c413de599250e219a151e0a33412fd20d408ff40e62484dbfebb9d5139
+  16d0ead5c3d6defe
 c_e_traffic:
-  d67d72815a03f3133a92a9c2b7e803ab0c189ce9556b449ef55f5334a308f492
-  be65ae2df723ecb7aca3a4308211192701a3d77627e47033e3bca542e246318f
-e_exp_master:
-  66fc225aba92994e95b59de340415b7d480c3e22f908662fdaa94cd14f8cc9ec
-  005f8d8e3c81c410810d8c120d3abc69ab15c1e3515071d2473e76190e778749
-binder_key (res binder):
-  f786e8aa41a3f5b6371109956e537a1934339f96925f64a986d766c3ddc71ef8
-  5d9e2fe02afd46f32131c7d7dfdfda9488ca64e6d3d78cf2f93c2f6d7b981ac7
-Absorb(E,"psk","") contributed:
-  000370736b0000
+  038f7f1859e10bb10c66292e9094ea0118b93c0542d0375546fd3cf403cd5d42
+  513365112b5c6d107779f7b6a2d338a91e0eaecc74262a72fd405ce8afa7b66a
+early_exporter_secret:
+  e19795b648a3cab68e0e1af16e545d418bd2637f21914190fdad847a2bad7486
+  3bfa2748fbe3ec1a1f5a1fde33d88365d02c8c63ad6b459eb372f6c898cd8d10
+binder_key (rbk):
+  9fee08647c6c6fcafa6adce680af649372a92a84714b74811a136f30090e0bcb
+  62bc0a3131c61f09e1bec780c78da0f01ef09b7b4edf9351cd47790525ff90b1
+Absorb(E,"psk_","") contributed:
+  000470736b5f0000
 
 # PSK binder
 finished_key (binder):
-  2c83c8720e56a0ad4281b3149a41ecf34f880c23d43464dbca6718e49041a7a8
-  1fcfdc608d8a48d559f8eaf108e3137ed5029c8e88e8831776d858ea37f3be43
+  95371b8e1588f6f3362166dea9dbfdf42d0cfcdced9d3f4f3c5ae8a433b7193d
+  4a59d2386e80b6c5364f9c09032e731ce124ae3fe64388bed712664afa549e96
 binder verify_data:
-  13589a03331d4dc6670d515e2b910c451fb53dff10a7c865ea5ec17afeae603e
-  a2aad2ed3ac93bacc72cafdfcc1cbd96327487aebaab3ad146ffcdf86be06203
+  520bba7c77d5b33fa243305c6c14c50365b4ba291c5c37863b692cb2363042b2
+  6f17fd8773fc3945119215fd336ad0cda55fa852aac3b6fea36b78c07a14348c
+
+# External PSK binder
+binder_key (ebk):
+  d6f420946dd61281511d1b84d37a92411f5750b821fac84a3342b3f46afcfec2
+  065325d9b53fdfe4e536f276a232b5a4207ed052a88ca786513ce92b38325f36
+finished_key (external binder):
+  95f1a8a6ad0c8423a8deb990c3d95ce710eecf06f49850eb71eb40e9417be4ab
+  aabe557019e508f26a72bce45147d19e2d2d4ba0aa072bdee44cf51d736ae087
+external binder verify_data:
+  b36ee253e86760f99bd8f4a615aabf88b65133e9947182729a21414193f7957d
+  7f106e0df8a1261fb03c496c049773054e35f3023200b50ef5ea05820f9cf5fb
 
 # Handshake stage
 residue E->H:
-  e072e5f19d821f866ee30a1573b515a1bb5ef48d5799c07c426a98cd46d2ede6
-  a429c36eb7fd0ffa4bd24b441bcb7c331b50fbe92e5230e659dd87c7928ea56e
+  bbcddbd734004a68dd091209b420ad9b01ff4ea2af978f05e3207bf69c255fa1
+  55f070d717d1c5997eac4d3a1bbd7952a9c0beb9229800cdd3d3c4fddd77eab3
 c_hs_traffic:
-  d7b576daf46934ea25e5221a8e7734950c33980fbcd3e5e63d5b5bfa11c19249
-  d06fb884cee245530d442572621b0b67ab77c81a7bacbddc58ae33a4debf4364
+  ce3c4eb7638487febbbdca1e9af27a688a5035958d2f9cbf398e9321945c8b0e
+  97fdcf66568138b63b550ae2613afc9d90aaf5395a574817cd4de4a047f7aecf
 s_hs_traffic:
-  e8dd5e9929ad2b6f1d0d89ba8ae26fb4d98a766f8a008dbe2515f5d5d3b898cf
-  670796f6f2ed107c43ab1a211a37735028d67cbcd7d3d3ce501db77f6dcbcb50
+  e8d8e201b669a5c0bcd4be3e833e660e6fa312cbc7179315c6f5374f99da22ac
+  8b37646ed925c8c65fd3a3d9bd2270e471b30f720d6bea93032d0b38ba36949d
 
 # Finished
 finished_key (server):
-  0571d5e83ffef92f9044389b959f5f1130f6f0503638e8f366e27fe79fbe520d
-  73f3f6f62ae0c134320f1dd9432df6c756f83bf35f58943c7ee3c1863ffd20f7
+  8dfe4bd2fd650fa9bee96e9ca952db0afda452285f929da338d93e3e9473127b
+  4a6571c16c79e560aecd3ce4b4b1d6726d1bfe7c89a7cef484803e8d481f9ed9
 server verify_data:
-  8efcca010fd741cde182f922e38ea2bfe95173d2d7c33b7505dc3a27ffd6d7aa
-  774f156bdb38c156baec08159e0cc1a662243767eb0f730480971cec6d32b1c0
+  0a255f7b09d79be73e0b967ded570a6e9d83466a20421e64be7404c0fad51a8f
+  bf18a6feade59d430aa26ab39a74a45185d112252fa0796cc08630e5df843983
 
 # Application stage
 residue H->T:
-  85eb68510203f3f89c4fb152aa825c9760ee08b78cd2597ab1f9654a2b625f31
-  50ce5aa92a79fb58a7329777791e5ab186aa1c48eb4215a8bea5298ca6e5bf84
+  c188b26131861ed7ee1bf00206befda703df2183b7e8d0f89cc4478ba2c5d30e
+  246526d63d5c34335606e78ef44f2422bfeced52a5b3e683fa8246575787f854
 c_ap_traffic:
-  f8aa74249ab3b4987dfdcaa1dbf5e902bbdbfcd028368695f068f75ccf771536
-  268320456a89ea53f1c16d5eb650b2ebffe678cc1ab37a0efe0a00b43e8fbaf7
+  bdaa27b4f8f6aced10c66e681cc19ef0b8d8b601c71a696b29f17f564aa498ad
+  01919258ec08c365abd55ab5f33a84d0705a2590203f6d14b1cf38d75a56636f
 s_ap_traffic:
-  0b2ecd818c025b55da1e283d7249e53753c8943864d0437acd34609d5b20e9a4
-  bf9c7596594e32bbe2a39b5b087d79d7bc55d269e60d0c76a27a87427e99f20b
-exp_master:
-  d3ba3d208ba2969bed14d8a2c283de9191db0a94616eb5650993b2e2069f4e27
-  142839bf2e1764a0f884136d4e495e5d8597d1c92e089dc3ab250314caec9cbe
-res_master:
-  248ac8baac7821842b09ed219caa68cc4052ef091b7cd1aa7dcb15d9fc74c3cd
-  0d08ec2bd01b8750f50946b0b9208e14136cdd3ce15b34085cff2f0a2ec54ec0
+  f4e1557726a828523021390bda3c8ba68f868c0721851e10d8948bded2f2dacf
+  84a61a4428a27e12092887babee67c9593aefb48d6ae70184fcdb896632f2da8
+exporter_secret:
+  0dd71cc19b325b2f682e66f7b8d3209c58746118f16baf6c583b8d7efef36b74
+  ca83cf36f4ea113556416db9cec7d5e947d25ad9cb6572496234516091eb6cc0
+resumption_secret:
+  c74862daef3503d0246ff3edbd55e3ab7be65c862ebcdaf349308eb010dcfea5
+  7976a2cca78f6b5f7bc78b9d29cce2f97626a715fcabc067f7c884f04307036f
 
 # Record keys (Nk=16, Nn=12 of TLS_AES_128_GCM)
 key_block:
-  b1bce022917899cbf534dc767178dbd321081b50ca6f0536542cde70
+  bba5cfef82a27c88bbdea8d5c5a7275e4b1a8ba412ea776dc6ab9fd0
 write_key = key_block[0..16]:
-  b1bce022917899cbf534dc767178dbd3
+  bba5cfef82a27c88bbdea8d5c5a7275e
 write_iv  = key_block[16..28]:
-  21081b50ca6f0536542cde70
+  4b1a8ba412ea776dc6ab9fd0
 
 # Key update
 app_traffic_secret_1:
-  e8880ec46b4d9604ca954b9e37d701e4cbab9d9fa065148a7a66b312defbecea
-  dc5d9eb76294e67ceab2ec25930c4442fce6ee9de075c6acfa7bf3e743f00f8b
+  ce5303ca8d723b69f0e9b5fb39ff062d3655bd752bfeb2b7bd1890be39630e22
+  430b863cdefa2fd98b147a64a0f8b64219cf3a2772d6b0dbc11cafa624c464f4
 
 # Resumption
 resumption_psk (nonce):
-  8ff5bb6a0d899a0fcf853f987d38ff118dfcef39898c78ac3c26c82c79fc8a20
-  4a16ff80ea24ba0f56289b74961231eb1daaa98ec805e710f9e07bdbc9238d12
+  29a29979bc467fee45ed69e65c9297e5d75d5a4aeaa13856817e8c661c679633
+  d3522c9dab70408e0986ba9802f1afdbe51bea1bee61d8380e3c65727a0ac8b0
 resumption_psk (empty nonce):
-  03c3bd9082229b48616402a298ba4ed0dc428474daad95a7600a347e6e1bc7c1
-  d3caf3bd097c034081c64ed4a3b55b69b10594d2b28ef25f64e5a3e33ae5910a
+  38fa81be97284eafbbb16aaef29f7df2edf41e010004dd241125413b1799d14e
+  266c80cbf2047116e6ecfdb3343715981a22c51891d84f6b1a27588e7576f0ae
 
 # Exporters
+exporter_label_secret:
+  53399e963826534e9bce0d4470ef56b1c98b5dcc92f6aad5d96e78356829b9aa
+  51367c6ff1052179d00c42b0ca2c89f47c513fbd24282de25e2c3cabe4693161
 TLS-Exporter (32 octets):
-  089d086244fdf269cb5761e666feb97bb02dde4d7616fea8937e4cda36f99c02
+  1d634e39add2a3dac37c86b3756510bcf44cd5994128e47aac63ac7715aa3b98
+early_exporter_label_secret:
+  9e66133a2c09106cf4e242f7e25e024c3916ba1b9fd2a46dfa34b98f661beaeb
+  c1f32069641bc5608bf99438c9358da2cd2fda417f6c6b24214714954bc3c732
 early exporter (32 octets):
-  d40ac0409da2f2f22e90a9906c0fac1d77a8230ec60c787e34694812a8d2197c
+  55493ef2c04354319cf64592acfd1aa5c344b232a56aa59b6968c0e07b3695e5
 
 # PSK import
 ImportedIdentity:
   001565787465726e616c2070736b206964656e74697479000003040100
-ipsk (derived psk):
-  816b1a76acf9c1112971aee8b84d1e06bfbe169ee74f4ee3cf60cd37df3d5f1d
-  248c35dc42b4ddc5b123fc69730482454fce97aea42ff2735acc2cc7988368e5
+ipsk (ipk):
+  b12977fe51dd07a1d5787324344d1fdbf03fabd8826b57e8362f9860e84e640c
+  1ec7a6632c56efde9ea0bb3edb21ff295b2c36c5b3bca39ef8bba2f79e835f9b
+
+# Imported PSK binder
+binder_key (ibk):
+  1fd33de09f4aa94440a8f2081ad0c07f23ed8a937db4b6c2e2cd9e25d11c4d6b
+  723292c6717b9c94bd00f5d554b8efb5425494243ec3b55e4f83046d7ba8d95a
+finished_key (imported binder):
+  972f9e19d66681533dee3ee36bf5f9a6b7f66ee50c41865e5eb2bc6f77e001dd
+  9fcb151e4a7e51eb0be3e75eeb92c9df2d10533d8c432892c7eca0282ed5be74
+imported binder verify_data:
+  091900c7f1d11dac9256e6d5e156f0990555dec30230dc06721dbbf754a07d3b
+  313354c849cd8632311e9cb903e8b35bdacb8dce102ac3a803452289ccd874fb
 
 # ECH acceptance confirmations
 accept_confirmation:
-  1d3220c2df122d69
+  7deaf576fa50bd88
 hrr_accept_confirmation:
-  c7a9dada2343008a
+  1e89c54e87b6e455
+~~~~
+
+~~~~
+# PSK-only
+c_hs_traffic (PSK-only):
+  992d293e453d6196ad8f3b48bfc892e2d4a318a913d840385aa3294a57c146ad
+  e1b4422614d22217018c7070928f0ae784f324cc8300dc2121fd24a1ae584067
+s_hs_traffic (PSK-only):
+  017771ca9ceffd0dec2afa9438bb78c9f67472344d4340926a59083f09414edc
+  1962edd8ec267756e08613a5bc87b3b75caff6c4be33a5e976ec4ff274e8c49b
+c_ap_traffic (PSK-only):
+  f3e043c8dcf9a40474c02415f63b4e9954c1bd20d33f2bf715b92a2fcefc38f5
+  a4f24b7f516aa19a008000665f27fdef7f9cf707f14c1db60b803238857dd386
+
+# hybrid
+c_hs_traffic (hybrid):
+  65a7e7990bbb12d12a4f8a8e37242925b1197c6fd92662ec61bee3dd86b229bd
+  2c73e935d6b3af8c59730fc222b443ab7332c542b76f935df1824f14fa2dcd73
+s_hs_traffic (hybrid):
+  165cb3cdddd65eafa2d7177fa96e9c22eb956d48985f95d7b0b9bf41b973bcd9
+  a56d6e7c0c0c7ab6f369e3e6e5dfdb99d4d11d564434233aa5f3ffdca930f72a
+c_ap_traffic (hybrid):
+  6f704ca7b0295a1db58ddee2f78731bd9003a0281baa454eb6a3a105e9d7be12
+  bb5c54e71909cbcdc86443d8814cf0b067f2efb180236e74c0735496d69c7406
 ~~~~
 
 A message-level full-handshake trace in the style of RFC 8448 has not
@@ -2467,12 +2429,7 @@ into a TLS stack.
 
 # The NIST Shapes of the TLS 1.3 Key Schedule (Informative) {#fips-schedule}
 
-This appendix is non-normative.  The deck schedule of {{deck-schedule}}
-is built by taking each computation TLS 1.3 derives from HKDF and
-giving it a deck operation instead ({{shapes}}).  This appendix sets
-that against the other target: for each site of the TLS 1.3 key
-schedule, what this document does there, and the NIST Recommendation
-that governs a site of that shape.
+This appendix is non-normative.
 
 | RFC 9846, Section 7.1 site | This document | NIST for a site of that shape |
 |---|---|---|
@@ -2481,51 +2438,23 @@ that governs a site of that shape.
 | HKDF-Extract, forming each stage secret | Absorb, and Ratchet at each boundary | {{SP800-56C}}, Section 5.1 |
 | Derive-Secret and HKDF-Expand-Label, at every leaf | Derive | {{SP800-108}}, Section 4.4 |
 | Transcript-Hash | DF, unkeyed | {{FIPS202}} |
-| the Finished and PSK binder MACs | KMAC256, or TurboKMAC256 | {{SP800-185}} |
+| the Finished and PSK binder MACs | MAC, a Derive | None |
 {: #nist-shape-table title="TLS 1.3 Key-Schedule Sites, This Document, and the NIST Recommendation for Each Shape"}
 
-The MAC is the only row where this document uses an approved
-construction in its approved role.  On TLS13_SHAKE256 it is
-byte-for-byte NIST KMAC256 ({{shake-mac}}), which is a MAC where
-{{SP800-185}} specifies a MAC.  Every other row replaces the HKDF site
-with a deck operation, and that is the design rather than an omission:
-the deck is not an approved key-derivation function under any current
-Special Publication, no CAVP or CMVP testing covers it, and
-TLS13_TURBOSHAKE256 rests on reduced-round functions NIST has not
-approved at all.  A deployment that requires approved components cannot
-use either KDF of this document.
+TLS13_SHAKE256 computes every value, its MACs included, with SHAKE256,
+an approved function of {{FIPS202}}, but in a construction no Special
+Publication specifies.  A deployment that requires approved components
+cannot use either KDF of this document.
 
-The natural question is then what an approved schedule would use, and
-the answer is not simply KMAC everywhere. {{SP800-108}}, Section 4.4
-adds a KDF using KMAC and needs no iteration, "When using KMAC, there is
-no need for an iterated PRF execution", so the expansion row is
-available: it also requires the output length before the call, "KMAC128
-or KMAC256 shall be used" rather than a KMACXOF variant, which the
-deck's Derive already satisfies for that same reason
-({{deck-interface}}).  The extraction row is not available.
+{{SP800-56C}}, Table 4 permits HMAC-SHA3-256, so the one conformant
+SHA-3-family schedule today is HMAC-SHA3 in the extraction and expansion
+rows:  TLS 1.3 with a SHA-3 hash, which changes the hash and not the
+schedule.
 
-{{SP800-56C}}, Section 5.1 admits two auxiliary MAC algorithms and no
-others, "either an implementation of HMAC ... or an implementation of
-AES-CMAC", and then ties the rows together, "the PRF used by the KDF in
-key expansion is determined by the MAC algorithm that is used for
-randomness extraction", which rules out an HMAC extract with a KMAC
-expand as well.  Table 4 permits HMAC-SHA3-256, so the one conformant
-SHA-3-family schedule today is HMAC-SHA3 in both rows: TLS 1.3 with a
-SHA-3 hash, which changes the hash and not the schedule.
-
-That row is not closed, though. {{SP800-56C}}, Section 8.3: "At this
-time, KMAC has not been specified for use in the implementation of a
-two-step key-derivation procedure.  This restriction may be reconsidered
-once a KMAC-based KDF has been approved for use as a PRF-based KDF in a
-revision of \[SP 800-108\]." That revision exists: {{SP800-108}} is
-Revision 1, and its own account of what changed reads "In Revision 1, a
-KDF using KMAC is added in Section 4.4".  The condition NIST named has
-been met and the reconsideration has not yet happened.  Section 4.1 of
-{{SP800-56C}} meanwhile already approves KMAC as the auxiliary function
-of a one-step KDF, "H(x) = KMAC#(salt, x, H_outputBits, S)", keyed by a
-salt, so KMAC keyed by a salt is an approved derivation primitive today
-and it is the two-step composition that is pending.
-
-Whichever way that resolves, the KMAC schedule is not free:  every KMAC
-call reabsorbs a bytepad-framed key block that the deck's running state
-carries instead.
+{{SP800-56C}}, Section 8.3:  "At this time, KMAC has not been specified
+for use in the implementation of a two-step key-derivation procedure.
+This restriction may be reconsidered once a KMAC-based KDF has been
+approved for use as a PRF-based KDF in a revision of \[SP 800-108\]."
+That revision exists:  {{SP800-108}} is Revision 1, and its own account
+of what changed reads "In Revision 1, a KDF using KMAC is added in
+Section 4.4".  The condition NIST named has been met.
