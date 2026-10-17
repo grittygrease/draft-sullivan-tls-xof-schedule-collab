@@ -11,22 +11,22 @@ import (
 func TestTwoStageExporterAndExternalBinderVectors(t *testing.T) {
 	want := map[string]map[string]string{
 		"TLS13_SHAKE256": {
-			"exporter_label_secret":          "55b6277322fba611e66f608cc5c937b961f67868b59e8bc9f29581036e713690191fbbc656bc9abb53c3e75e13c7f2ddbaf4861bc7d27f10e5027810ec52a15c",
-			"TLS-Exporter (32 octets)":       "f09c0f94a9261fb7ab02171f6e9448b47ce6f34e1950b15d3b2be17072620e63",
-			"early_exporter_label_secret":    "fe7331c50be5b4b0ead154504e29e23357b283c1b29ee5c6f7779849f3c64f433897018a4387f32440173aa2abd92de582ff95e4845e4ea0426f096157b83cf2",
-			"early exporter (32 octets)":     "387d4172845fdab9b930d42b49ef82c0ed1758b69c99bed13f98eb091d9be190",
-			"binder_key (ebk)":               "c8d18ca9fcc3276e8770b009b077f18a01b6f7442bb3e7afc5b156e6b3cd62bbe27e0283a69b2c64afcc811779051152d256427104d4c45564d741ed1a7686f1",
-			"finished_key (external binder)": "b31ef8da3c20817cc5b2dc06336671f117edafb5fc276b8d58a3d731e2ae817cb548150d6591060e4a3c263d9311bee081399b996d96be0c4880e863e56cbb16",
-			"external binder verify_data":    "b44c1f511878261b1a2d09379a02ea96674b84ea3e256fe5560c0c86485131c2bb28fc7140adbd224be3d94f1c33d1915eab87cc23bacaf7e3d6b0c0f851040c",
+			"exporter_label_secret":          "d4b6b6351c8c08da5843bfb0e39c4ad2b2686ff71d8baa1f05c0e9d3fa06825cbab3553a3e9d0dd7a71d3c712678b6f6f06d57e37180217d97e26bc7943072a5",
+			"TLS-Exporter (32 octets)":       "a9c3287164d223f7b88d8ddd805a7159f082146cbe44ed5987bd5195f6d34293",
+			"early_exporter_label_secret":    "cc8b50a689ea0e42f9e580877c58701c9ba03b98ad5e783c8bf4b3d84ecaf17584eb76cd06f61cfc66ea7f669ee60b337da2c6b1cb4e555851887f501c00b9d2",
+			"early exporter (32 octets)":     "213a0a9a2b99554845a69ef666fd1a9d2fc640819360af5a3958d82f1df79d00",
+			"binder_key (ebk)":               "d86efa2938c7867973463e6885c5c5db55b9162ff5b3cf1080c92392387916cbb29b4bb5a1ba6821c71a72908220abaa82ce910e750411ac4dc74f6250a38d83",
+			"finished_key (external binder)": "5d4d86dbcf32afaa81c518cc453565303379a4c2b1719477a1bbbec67673fedefa7c609ad40b0eac4c87f7a5b476eef33fd31bc5bc87477df67336205e15773c",
+			"external binder verify_data":    "d62b772fd7784240711c49b856e82a2b442fdfe4f4865c416b0b32f72dfca84f7832f9a214af2f34bc21948dfdc44192edcbf4571ec7f82093c80ab027c84236",
 		},
 		"TLS13_TURBOSHAKE256": {
-			"exporter_label_secret":          "53399e963826534e9bce0d4470ef56b1c98b5dcc92f6aad5d96e78356829b9aa51367c6ff1052179d00c42b0ca2c89f47c513fbd24282de25e2c3cabe4693161",
-			"TLS-Exporter (32 octets)":       "1d634e39add2a3dac37c86b3756510bcf44cd5994128e47aac63ac7715aa3b98",
-			"early_exporter_label_secret":    "9e66133a2c09106cf4e242f7e25e024c3916ba1b9fd2a46dfa34b98f661beaebc1f32069641bc5608bf99438c9358da2cd2fda417f6c6b24214714954bc3c732",
-			"early exporter (32 octets)":     "55493ef2c04354319cf64592acfd1aa5c344b232a56aa59b6968c0e07b3695e5",
-			"binder_key (ebk)":               "d6f420946dd61281511d1b84d37a92411f5750b821fac84a3342b3f46afcfec2065325d9b53fdfe4e536f276a232b5a4207ed052a88ca786513ce92b38325f36",
-			"finished_key (external binder)": "95f1a8a6ad0c8423a8deb990c3d95ce710eecf06f49850eb71eb40e9417be4abaabe557019e508f26a72bce45147d19e2d2d4ba0aa072bdee44cf51d736ae087",
-			"external binder verify_data":    "b36ee253e86760f99bd8f4a615aabf88b65133e9947182729a21414193f7957d7f106e0df8a1261fb03c496c049773054e35f3023200b50ef5ea05820f9cf5fb",
+			"exporter_label_secret":          "a6aefd256a6bc0fd6adbff6c882f20aa5a84e2be73e50ff3f340149ee5a89bb5f9c104a1319076860dcb193d51098d670f606e92c61a299b1b81089cba3105ef",
+			"TLS-Exporter (32 octets)":       "ed7f44dde38ef5fe6441560aed075c78dfe079a2a37a2af988f35a2ef2f0da2d",
+			"early_exporter_label_secret":    "1c3807bfd182fbc9d63f2e9d272c1c06b5ed593c4d5cc43befdad754e6d7c528814e81c1a41be9a0b1c1d527ed29681792c7b4cb750430b2b0592ee76f1abddc",
+			"early exporter (32 octets)":     "844ea5d8b5ff06f5ec6c0b916019b73c2cc25aa50e78c31cb7764519510f6490",
+			"binder_key (ebk)":               "43bc3e3fbce124364f99b5e78ba81f29a3d61575b776cc99a33cbac7adfdc745d201aaa567856dd4da89d7f260899c5dfafe1ec3e1e0bd5c066b94e2b66940f4",
+			"finished_key (external binder)": "fd2e6599c6c60a42f2e9a2d72e59aa21bae1a9cd7b657d5eaf4dae81f73c6e103d5ba7be11152ce8635f8e8d79a430472d2ee8e89ed96a7264da0d3ffbc0d668",
+			"external binder verify_data":    "6285bd415678e51f90e868a489d40142b0baa93a8dd63a566e5849882b26ba5a4ef3fb8062c16e883c758d062757ea353f75b2c465b36e4f607a83850dcf5d10",
 		},
 	}
 	for _, p := range []*Profile{SHAKE256, TURBOSHAKE256} {
