@@ -10,9 +10,9 @@ import (
 )
 
 // main emits the Test Vectors appendix values for both profiles, in the
-// "name: hex" form tools/vectors_check.py compares. Every stated input is
-// either a short ASCII string or TranscriptHash of one, so the whole set
-// is reproducible from the draft text alone.
+// "name: hex" form tools/vectors_check.py compares. The stated inputs,
+// including the Exported Authenticator handshake messages, are all
+// reproducible from the draft text alone.
 //
 // Run: go run . (from tools/go)
 func main() {
@@ -67,9 +67,10 @@ func emitVectors(p *Profile) {
 	e.Absorb("psk_", psk)
 	out("Absorb(E,\"psk_\",PSK) contributed", e.seq[n:])
 
-	cETraffic := e.DeriveSecret("cet", thCH)
-	earlyExporterSecret := e.DeriveSecret("ees", thCH)
-	binderKey := e.DeriveSecret("rbk", nil) // no context
+	early := e.DeriveN([]Output{{"cet", SecretLen}, {"ees", SecretLen}}, ctagTranscript, thCH)
+	cETraffic, earlyExporterSecret := early[0], early[1]
+	binder := e.DeriveN([]Output{{"rbk", SecretLen}, {"drv", SecretLen}}, ctagTranscript, nil)
+	binderKey, residueEH := binder[0], binder[1]
 	out("c_e_traffic", cETraffic)
 	out("early_exporter_secret", earlyExporterSecret)
 	out("binder_key (rbk)", binderKey)
@@ -88,7 +89,8 @@ func emitVectors(p *Profile) {
 	out("binder verify_data", binderVD)
 
 	section("External PSK binder")
-	externalBinderKey := e.DeriveSecret("ebk", nil)
+	externalBundle := e.DeriveN([]Output{{"ebk", SecretLen}, {"drv", SecretLen}}, ctagTranscript, nil)
+	externalBinderKey := externalBundle[0]
 	externalBinderFK := p.FromSecret(externalBinderKey).Expand("fin", nil, SecretLen)
 	externalBinderVD := p.MAC(externalBinderFK, thCH0, FLen)
 	out("binder_key (ebk)", externalBinderKey)
@@ -97,24 +99,27 @@ func emitVectors(p *Profile) {
 
 	// ---- handshake stage -----------------------------------------------
 	section("Handshake stage")
-	refE := p.Init()
-	refE.Absorb("psk_", psk)
-	residueEH := refE.derive("drv", ctagTranscript, nil, SecretLen)
 	out("residue E->H", residueEH)
-
-	h := e.Ratchet()
+	h := p.FromSecret(residueEH)
+	e.Destroy()
 	h.Absorb("shs_", ss)
-	cHsTraffic := h.DeriveSecret("cht", thSH)
-	sHsTraffic := h.DeriveSecret("sht", thSH)
+	hs := h.DeriveN([]Output{{"cht", SecretLen}, {"sht", SecretLen}}, ctagTranscript, thSH)
+	cHsTraffic, sHsTraffic := hs[0], hs[1]
 	out("c_hs_traffic", cHsTraffic)
 	out("s_hs_traffic", sHsTraffic)
 
 	// ---- Finished ------------------------------------------------------
 	section("Finished")
-	finFK := p.FromSecret(sHsTraffic).Expand("fin", nil, SecretLen)
+	clientHS := p.FromSecret(cHsTraffic).DeriveN([]Output{{"fin", SecretLen}, {"key", 28}}, ctagContext, nil)
+	serverHS := p.FromSecret(sHsTraffic).DeriveN([]Output{{"fin", SecretLen}, {"key", 28}}, ctagContext, nil)
+	finFK := serverHS[0]
 	finVD := p.MAC(finFK, thPreSF, FLen)
 	out("finished_key (server)", finFK)
 	out("server verify_data", finVD)
+	out("finished_key (client)", clientHS[0])
+	out("client verify_data", p.MAC(clientHS[0], thSF, FLen))
+	out("key_block (client handshake)", clientHS[1])
+	out("key_block (server handshake)", serverHS[1])
 
 	// ---- application stage ---------------------------------------------
 	section("Application stage")
@@ -125,9 +130,8 @@ func emitVectors(p *Profile) {
 	out("residue H->T", residueHT)
 
 	tt := h.Ratchet()
-	cApTraffic := tt.DeriveSecret("cat", thSF)
-	sApTraffic := tt.DeriveSecret("sat", thSF)
-	exporterSecret := tt.DeriveSecret("exs", thSF)
+	app := tt.DeriveN([]Output{{"cat", SecretLen}, {"sat", SecretLen}, {"exs", SecretLen}}, ctagTranscript, thSF)
+	cApTraffic, sApTraffic, exporterSecret := app[0], app[1], app[2]
 	resumptionSecret := tt.DeriveSecret("rss", thCF)
 	out("c_ap_traffic", cApTraffic)
 	out("s_ap_traffic", sApTraffic)
@@ -136,14 +140,25 @@ func emitVectors(p *Profile) {
 
 	// ---- retained-secret derivations ------------------------------------
 	section("Record keys (Nk=16, Nn=12 of TLS_AES_128_GCM)")
-	keyBlock := p.FromSecret(cApTraffic).Expand("key", nil, 16+12)
+	clientApp := p.FromSecret(cApTraffic).DeriveN([]Output{{"upd", SecretLen}, {"key", 28}}, ctagContext, nil)
+	serverApp := p.FromSecret(sApTraffic).DeriveN([]Output{{"upd", SecretLen}, {"key", 28}}, ctagContext, nil)
+	keyBlock := clientApp[1]
 	out("key_block", keyBlock)
 	out("write_key = key_block[0..16]", keyBlock[:16])
 	out("write_iv  = key_block[16..28]", keyBlock[16:])
+	out("key_block (server application)", serverApp[1])
+	out("key_block (early)", p.FromSecret(cETraffic).Expand("key", nil, 28))
 
 	section("Key update")
-	upd := p.FromSecret(cApTraffic).Expand("upd", nil, SecretLen)
+	upd := clientApp[0]
 	out("app_traffic_secret_1", upd)
+	out("server_app_traffic_secret_1", serverApp[0])
+	clientNext := p.FromSecret(upd).DeriveN([]Output{{"upd", SecretLen}, {"key", 28}}, ctagContext, nil)
+	serverNext := p.FromSecret(serverApp[0]).DeriveN([]Output{{"upd", SecretLen}, {"key", 28}}, ctagContext, nil)
+	out("key_block (client generation 1)", clientNext[1])
+	out("key_block (server generation 1)", serverNext[1])
+	out("app_traffic_secret_2 (lookahead)", clientNext[0])
+	out("server_app_traffic_secret_2 (lookahead)", serverNext[0])
 
 	section("Resumption")
 	rpsk := p.FromSecret(resumptionSecret).Expand("rsp", []byte("nonce"), SecretLen)
@@ -180,18 +195,9 @@ func emitVectors(p *Profile) {
 	ii = append(ii, be16(0x0304)...) // target_protocol
 	ii = append(ii, be16(int(p.TargetKDF))...)
 	out("ImportedIdentity", ii)
-	ipsk := p.FromSecret(epsk).Expand("ipk", p.TranscriptHash(ii), SecretLen)
+	ipsk := p.FromSecret(epsk).Expand("ipk",
+		p.TranscriptHash(ii), SecretLen)
 	out("ipsk (ipk)", ipsk)
-
-	section("Imported PSK binder")
-	importedE := p.Init()
-	importedE.Absorb("psk_", ipsk)
-	importedBinderKey := importedE.DeriveSecret("ibk", nil)
-	importedBinderFK := p.FromSecret(importedBinderKey).Expand("fin", nil, SecretLen)
-	importedBinderVD := p.MAC(importedBinderFK, thCH0, FLen)
-	out("binder_key (ibk)", importedBinderKey)
-	out("finished_key (imported binder)", importedBinderFK)
-	out("imported binder verify_data", importedBinderVD)
 
 	section("ECH acceptance confirmations")
 	d := p.FromSecret(inner)
@@ -201,6 +207,115 @@ func emitVectors(p *Profile) {
 		p.TranscriptHash([]byte("hrr_ech_conf_messages")), 8)
 	out("accept_confirmation", accept)
 	out("hrr_accept_confirmation", hrr)
+
+	// ---- DTLS 1.3 ------------------------------------------------------
+	section("DTLS 1.3 (schedule_label \"dtls13\")")
+	de := p.InitDTLS()
+	out("Init() sequence (DTLS)", de.seq)
+	de.Absorb("psk_", psk)
+	db := de.DeriveN([]Output{{"rbk", SecretLen}, {"drv", SecretLen}}, ctagTranscript, nil)
+	dh := p.FromSecretDTLS(db[1])
+	de.Destroy()
+	dh.Absorb("shs_", ss)
+	dHS := dh.DeriveN([]Output{{"cht", SecretLen}, {"sht", SecretLen}}, ctagTranscript, thSH)
+	dCHs := dHS[0]
+	out("c_hs_traffic (DTLS)", dCHs)
+	dt := dh.Ratchet()
+	dApp := dt.DeriveN([]Output{{"cat", SecretLen}, {"sat", SecretLen}, {"exs", SecretLen}}, ctagTranscript, thSF)
+	dCAp := dApp[0]
+	out("c_ap_traffic (DTLS)", dCAp)
+	dRecord := p.FromSecretDTLS(dCAp).DeriveN([]Output{{"upd", SecretLen}, {"key", 28}}, ctagContext, nil)
+	dKB := dRecord[1]
+	out("key_block (DTLS)", dKB)
+	out("sn_key (DTLS, Nk=16)", p.FromSecretDTLS(dCAp).Expand("snk", nil, 16))
+	out("sn_key (DTLS handshake, Nk=16)", p.FromSecretDTLS(dCHs).Expand("snk", nil, 16))
+
+	section("Imported PSK and no-PSK variants")
+	importedEarly := p.Init()
+	importedEarly.Absorb("psk_", ipsk)
+	importedBundle := importedEarly.DeriveN([]Output{{"ibk", SecretLen}, {"drv", SecretLen}}, ctagTranscript, nil)
+	out("binder_key (ibk)", importedBundle[0])
+	importedFK := p.FromSecret(importedBundle[0]).Expand("fin", nil, SecretLen)
+	out("finished_key (imported binder)", importedFK)
+	out("imported binder verify_data", p.MAC(importedFK, thCH0, FLen))
+	out("residue E->H (imported)", importedBundle[1])
+	importedH := p.FromSecret(importedBundle[1])
+	importedH.Absorb("shs_", ss)
+	importedHS := importedH.DeriveN([]Output{{"cht", SecretLen}, {"sht", SecretLen}}, ctagTranscript, thSH)
+	out("c_hs_traffic (imported)", importedHS[0])
+	out("s_hs_traffic (imported)", importedHS[1])
+	noPSKResidue := e0.DeriveSecret("drv", nil)
+	out("residue E->H (no PSK)", noPSKResidue)
+	noPSKH := e0.Ratchet()
+	noPSKH.Absorb("shs_", ss)
+	noPSKHS := noPSKH.DeriveN([]Output{{"cht", SecretLen}, {"sht", SecretLen}}, ctagTranscript, thSH)
+	out("c_hs_traffic (no PSK)", noPSKHS[0])
+	out("s_hs_traffic (no PSK)", noPSKHS[1])
+
+	// ---- Exported Authenticator ----------------------------------------
+	// RFC 9261 under a KDF of the draft: 64-octet exporter values,
+	// TranscriptHash as the authenticator hash, MAC in place of HMAC.
+	section("Exported Authenticator (server)")
+	tlsExporter := func(label, context string, length int) []byte {
+		labelSecret := p.FromSecret(exporterSecret).Expand("exl",
+			[]byte(label), SecretLen)
+		return p.FromSecret(labelSecret).Expand("exp",
+			p.TranscriptHash([]byte(context)), length)
+	}
+	hc := tlsExporter("EXPORTER-server authenticator handshake context", "", SecretLen)
+	fk := tlsExporter("EXPORTER-server authenticator finished key", "", SecretLen)
+	out("Handshake Context", hc)
+	out("Finished MAC Key", fk)
+	cat := func(parts ...[]byte) []byte {
+		var b []byte
+		for _, x := range parts {
+			b = append(b, x...)
+		}
+		return b
+	}
+	// The appendix's self-signed Ed25519 X.509v3 test certificate, CN=test.
+	// This DER input is specified in the draft; TLS framing is built here.
+	certDER, err := hex.DecodeString(
+		"3081c9307da003020102020101300506032b6570300f310d300b06035504030c" +
+			"0474657374301e170d3236303130313030303030305a170d3336303130313030" +
+			"303030305a300f310d300b06035504030c0474657374302a300506032b657003" +
+			"210003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc86641255" +
+			"31b8300506032b657003410023c815b130eac1285714a01f2b99ffb720c5b234" +
+			"06ff492bbf9a4852f6e6c99f000959f0a2886763e10679390eee02d4e48d6f38" +
+			"2729357fc52bde69e6430f07")
+	if err != nil {
+		panic(err)
+	}
+	be24 := func(n int) []byte { return []byte{byte(n >> 16), byte(n >> 8), byte(n)} }
+	// CertificateEntry: cert_data<1..2^24-1> = 0000cc || 204 DER octets,
+	// extensions<0..2^16-1> = 0000; total 209 (0xd1) octets.
+	entry := cat(be24(len(certDER)), certDER, be16(0))
+	// Certificate: msg_type 11, length 214 (0000d6),
+	// context<0..255> = 01a5, certificate_list = 0000d1 || entry.
+	// RFC 9261 permits a context in unsolicited server authenticators;
+	// this one-octet context is fixed solely for the test vector.
+	certBody := cat([]byte{1, 0xa5}, be24(len(entry)), entry)
+	cert := cat([]byte{11}, be24(len(certBody)), certBody)
+	// CertificateVerify: msg_type 15, length 68 (000044),
+	// algorithm = 0807 (ed25519), signature<0..65535> = 0040 || 64 zeros.
+	// The signature is a fixed test value, not a real signature over the
+	// content. These vectors do not verify signatures.
+	signature := make([]byte, 64)
+	cvBody := cat(be16(0x0807), be16(len(signature)), signature)
+	certVerify := cat([]byte{15}, be24(len(cvBody)), cvBody)
+	out("TranscriptHash(HC || Certificate)",
+		p.TranscriptHash(cat(hc, cert)))
+	out("Finished", p.MAC(fk,
+		p.TranscriptHash(cat(hc, cert, certVerify)), FLen))
+	// Empty authenticator (RFC 9261 Section 6): no CertificateVerify, and
+	// a Certificate message with no CertificateEntries, serialized and
+	// hashed but not sent. The authenticator request is the ASCII
+	// stand-in "CertificateRequest"; the Certificate is the real
+	// serialization with an empty certificate_request_context:
+	// msg_type 11, length 4, context<0..255> = 00, certificate_list = 000000.
+	emptyCert := []byte{0x0b, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00}
+	out("Finished (empty authenticator)",
+		p.MAC(fk, p.TranscriptHash(cat(hc, []byte("CertificateRequest"), emptyCert)), FLen))
 
 	// Each fixture starts a fresh schedule with the same PSK/checkpoints.
 	for _, fixture := range []struct {
@@ -213,14 +328,17 @@ func emitVectors(p *Profile) {
 		section(fixture.name)
 		e := p.Init()
 		e.Absorb("psk_", psk)
-		h := e.Ratchet()
+		binder := e.DeriveN([]Output{{"rbk", SecretLen}, {"drv", SecretLen}}, ctagTranscript, nil)
+		h := p.FromSecret(binder[1])
 		for _, component := range fixture.components {
 			h.Absorb("shs_", component)
 		}
-		out("c_hs_traffic ("+fixture.name+")", h.DeriveSecret("cht", thSH))
-		out("s_hs_traffic ("+fixture.name+")", h.DeriveSecret("sht", thSH))
+		hs := h.DeriveN([]Output{{"cht", SecretLen}, {"sht", SecretLen}}, ctagTranscript, thSH)
+		out("c_hs_traffic ("+fixture.name+")", hs[0])
+		out("s_hs_traffic ("+fixture.name+")", hs[1])
 		t := h.Ratchet()
-		out("c_ap_traffic ("+fixture.name+")", t.DeriveSecret("cat", thSF))
+		app := t.DeriveN([]Output{{"cat", SecretLen}, {"sat", SecretLen}, {"exs", SecretLen}}, ctagTranscript, thSF)
+		out("c_ap_traffic ("+fixture.name+")", app[0])
 		t.Destroy()
 	}
 }

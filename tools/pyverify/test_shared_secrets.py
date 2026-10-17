@@ -8,54 +8,54 @@ import verify
 EXPECTED = {
     "TLS13_SHAKE256": {
         "c_hs_traffic (PSK-only)": (
-            "e0ab811e34a7026586f6514a8d44877c5b849e707bc4e627bdf7c086c6a85646"
-            "ed6081654a02acde603a5296011ad5bc46738e0e84f661ddc298bc544435fb40"
+            "8002d2845fb5f1b98da952a729e2d1a455802417e6b8b49385c418cd148fb127"
+            "fd4dd559b94e308586b0090bb74c2b9163e36f740a1cf53383c6949c91724950"
         ),
         "s_hs_traffic (PSK-only)": (
-            "d929a47d730a8a55f71c0a27539850705f3a5e61bff48f6bb18a169752282c8a"
-            "43a36bb6dbd554d438afbd5f3bf18c13a09c3432709ab6012ff16d7269e0ce73"
+            "577e01db7d08e1d8356df00beb13f51795864eb02e213c9a58acab3a3bb65923"
+            "59df8a8cd0b3cff1e8c140943f4106db60547853d79791a57a348f3f088e4e56"
         ),
         "c_ap_traffic (PSK-only)": (
-            "43f2b9c7574c16870c00698693a64ca19345e2b7133392349a17c54f8ba38adb"
-            "6cfa6a82badc71d432e267fea4ff6ff73ec7d88b5fadffaf6891b9258f09954c"
+            "35af7a37f2f35c50428c35486dd8776c1fcb0cb834f77ce8e690b5250754380f"
+            "aa40ac0e491b2741ffa2b4b7c2fd132a0a2ea56b1b48bda90b9eb4aa2ed813cc"
         ),
         "c_hs_traffic (hybrid)": (
-            "2bab27300224fa295fa4902de9ce7629667de0da042aceffe72705df148c5c1d"
-            "a68034c847bb188dc9f64a5ee78c1b82a2511ce3f9c40cf92173e3d08f9b83d1"
+            "4e725e4687624689defb14a5786f2fc4e76309c28adaa7a5fc266cb1064ab53d"
+            "207c7610d43912147b58e619427870be0c5610f42bdd6b1416fa291a330f76af"
         ),
         "s_hs_traffic (hybrid)": (
-            "39fc698e23a46015524eebfcec1e8887975c7b2c189909139ef45e54bd9e5fd9"
-            "11f11f822cdaaa6f9a2156ebb00c116723cf5d68ea958dbd5f04b17c113a79e1"
+            "ecd094adf9c38c21fca2ede44fd1abf9f0a806dcf556373d54a58ace6cde91c8"
+            "4ac56e31fa9a2fd1ab1c9f9195935a58134d127d60a0127222f6a439a865b6e7"
         ),
         "c_ap_traffic (hybrid)": (
-            "7ed2add97208d6a43e4f86b9f3ef4693489c89fdb292b6902b4c77c883684375"
-            "4d49dcc41797a6855e2e6a59b173a6456410b4646dd436f37b9882fc52b15a74"
+            "9eb5243783dfd08e82d91a5aca6c843a8c6467d852d269d668cbf9fc774438fd"
+            "08560544ba42f5d8935fb0cacb450a189d62f556a0cf25c7752082c56a745171"
         ),
     },
     "TLS13_TURBOSHAKE256": {
         "c_hs_traffic (PSK-only)": (
-            "992d293e453d6196ad8f3b48bfc892e2d4a318a913d840385aa3294a57c146ad"
-            "e1b4422614d22217018c7070928f0ae784f324cc8300dc2121fd24a1ae584067"
+            "6580a4de683ec8c089dac82552e74aa074d89ba694108a6fb2d8bcde0a8f1bb5"
+            "042080fd9295ba0e6f0e5840c76f391441b09fdc446fc4ece571b95737ea0144"
         ),
         "s_hs_traffic (PSK-only)": (
-            "017771ca9ceffd0dec2afa9438bb78c9f67472344d4340926a59083f09414edc"
-            "1962edd8ec267756e08613a5bc87b3b75caff6c4be33a5e976ec4ff274e8c49b"
+            "bcc778a1f97fb32f4c0668ce707bad0eaa989a81ad502dc75095c2364db5ce19"
+            "2aab04dc21ec3948d3c76bc9357fe1e17b03ee6db2b6421bbbde1da812ae7760"
         ),
         "c_ap_traffic (PSK-only)": (
-            "f3e043c8dcf9a40474c02415f63b4e9954c1bd20d33f2bf715b92a2fcefc38f5"
-            "a4f24b7f516aa19a008000665f27fdef7f9cf707f14c1db60b803238857dd386"
+            "77463327a3609cfe97ee9c7523c8b071341450fba775a70a7b40bc1a947f064d"
+            "add30d198dd1d8bd7f53d29a3b5bd994d44bd065b51e728dcf1a7be5acd66c7d"
         ),
         "c_hs_traffic (hybrid)": (
-            "65a7e7990bbb12d12a4f8a8e37242925b1197c6fd92662ec61bee3dd86b229bd"
-            "2c73e935d6b3af8c59730fc222b443ab7332c542b76f935df1824f14fa2dcd73"
+            "2b199e54700a4992cc8df58b138564777fa58cfdb09a3cf6f474f78e81ac90e3"
+            "65a64b68ed75e9818dfe48b43b7b76a0b2ee7e2a596b6027ef960dddddcc63b8"
         ),
         "s_hs_traffic (hybrid)": (
-            "165cb3cdddd65eafa2d7177fa96e9c22eb956d48985f95d7b0b9bf41b973bcd9"
-            "a56d6e7c0c0c7ab6f369e3e6e5dfdb99d4d11d564434233aa5f3ffdca930f72a"
+            "ac1e433ba3fd73cb6054ddb95bc43e68a6f98346f5ed157033a38dfa07530c9f"
+            "7f5163876821a5d73599f13ea12a74a1c53bb3800f845b7eae61eed000d7f237"
         ),
         "c_ap_traffic (hybrid)": (
-            "6f704ca7b0295a1db58ddee2f78731bd9003a0281baa454eb6a3a105e9d7be12"
-            "bb5c54e71909cbcdc86443d8814cf0b067f2efb180236e74c0735496d69c7406"
+            "2c3d56389ed9582a11b61d36ffeee3f78feb25fcd576fa66166314bb465534d4"
+            "e0beb9c1685e60cab2084b7db9ab0f77d30ec48a8aa8d6efa90af6250157a2b8"
         ),
     },
 }
@@ -86,18 +86,21 @@ class SharedSecretFixtureTests(unittest.TestCase):
                     ("hybrid", [a + b]),
                     ("hybrid", [b, a])]:
                 e = verify.absorb(verify.init(), b"psk_", p.th(b"psk"))
-                h, _ = verify.ratchet(p, e)
+                _, residue = verify.derive_n(
+                    p, e, [(b"rbk", 64), (b"drv", 64)])
+                h = verify.seeded(residue)
                 for component in components:
                     h = verify.absorb(h, b"shs_", component)
                 t, _ = verify.ratchet(p, h)
-                different = {
-                    "c_hs_traffic": verify.derive_secret(
-                        p, h, b"cht", p.th(b"ClientHello..ServerHello")),
-                    "s_hs_traffic": verify.derive_secret(
-                        p, h, b"sht", p.th(b"ClientHello..ServerHello")),
-                    "c_ap_traffic": verify.derive_secret(
-                        p, t, b"cat", p.th(b"ClientHello..server Finished")),
-                }
+                c_hs, s_hs = verify.derive_n(
+                    p, h, [(b"cht", 64), (b"sht", 64)], b"th__",
+                    p.th(b"ClientHello..ServerHello"))
+                c_ap, _, _ = verify.derive_n(
+                    p, t, [(b"cat", 64), (b"sat", 64), (b"exs", 64)],
+                    b"th__", p.th(b"ClientHello..server Finished"))
+                different = {"c_hs_traffic": c_hs,
+                             "s_hs_traffic": s_hs,
+                             "c_ap_traffic": c_ap}
                 for name, value in different.items():
                     with self.subTest(profile=p.name, fixture=fixture,
                                       components=components, name=name):
