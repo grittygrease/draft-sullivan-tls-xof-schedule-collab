@@ -883,13 +883,13 @@ HelloRetryRequest.
 ### ECH and KDF Selection {#ech-kdf-selection}
 
 The server applies the rules of {{cipher-suites}} to ClientHelloInner if
-it accepts ECH and to ClientHelloOuter if it rejects it, and the two may
+it accepts ECH and to ClientHelloOuter if it rejects it.  The two may
 offer different KDFs.  The client learns which from the server's first
-message, as in {{Section 6.1.4 of RFC9849}}, computing its confirmation
-under the KDF that message selects, or as in {{RFC9849}} if it selects
-none, and then applies the rules of {{cipher-suites}} to that
-ClientHello.  A confirmation the client cannot compute counts as a
-rejection.  The KDF of the HPKE suite that encrypts ClientHelloInner
+message, as in {{Section 6.1.4 of RFC9849}}.  It computes the
+confirmation under the KDF that message selects, or as in {{RFC9849}} if
+it selects none, and a confirmation it cannot compute counts as a
+rejection.  It then applies the rules of {{cipher-suites}} to the same
+ClientHello.  The KDF of the HPKE suite that encrypts ClientHelloInner
 plays no part in this selection.
 
 ## PSK Import Derivation {#import-derivation}
@@ -1645,8 +1645,7 @@ in addition to those already defined by TLS 1.3:
   MAC, that fails verification, as in TLS 1.3.
 
 - handshake_failure:  the server's first message omits schedule_profile
-  when local policy requires a KDF of this document, except in the
-  ClientHelloOuter handshake after an ECH rejection ({{cipher-suites}}).
+  when local policy requires a KDF of this document ({{cipher-suites}}).
 
 # Companion Mechanisms {#companion-mechanisms}
 
@@ -2029,10 +2028,10 @@ DeriveN are disjoint slices of one answer.  In the random-oracle game,
 an adversary that never queries a string carrying the secret cannot
 distinguish those outputs from independent uniform strings.  For a
 secret with h bits of min-entropy conditioned on the adversary's view,
-the chance of such a query is at most q / 2^h in q queries, so at most
-q / 2^256 for an external PSK with 256 bits of min-entropy
-({{psk-entropy}}).  These are bounds in that game, subject to the
-preceding composition step, not bounds for the complete protocol.
+the chance of such a query is at most q / 2^h in q queries.  For an
+external PSK with 256 bits of min-entropy ({{psk-entropy}}), that is
+q / 2^256.  These are bounds in that game, subject to the preceding
+composition step, not bounds for the complete protocol.
 
 If the DeriveN answer is uniform, revealing some slices leaves the
 others uniform and independent, provided the adversary has not queried
