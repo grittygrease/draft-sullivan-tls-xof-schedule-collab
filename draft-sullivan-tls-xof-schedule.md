@@ -45,6 +45,7 @@ normative:
 
 informative:
   RFC8032:
+  RFC9001:
   I-D.ietf-tls-mldsa:
   FIPS204:
     target: https://csrc.nist.gov/pubs/fips/204/final
@@ -1652,6 +1653,14 @@ schedule.
 Any other mechanism that derives keys with HKDF-Expand-Label or HMAC,
 including one that derives them before any KDF is negotiated, is not
 covered by this document and needs its own specification.
+
+Until a specification defines a mechanism's derivations for a KDF of
+this document, an endpoint that negotiates that KDF MUST NOT use the
+mechanism on that connection.  QUIC {{RFC9001}} has no such
+specification yet:  its "quic key", "quic iv", "quic hp", and "quic ku"
+labels are not registered ({{iana-labels}}), and its Initial secrets are
+derived before any KDF is negotiated.  An endpoint MUST NOT negotiate a
+KDF of this document in QUIC until one exists.
 
 ## DTLS 1.3 {#dtls}
 
