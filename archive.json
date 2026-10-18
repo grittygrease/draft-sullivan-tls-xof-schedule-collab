@@ -1,0 +1,129 @@
+{
+  "magic": "E!vIA5L86J2I",
+  "timestamp": "2026-10-18T00:12:03.745387+00:00",
+  "repo": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+  "labels": [
+    {
+      "name": "accessibility",
+      "description": "Barrier affecting people with disabilities",
+      "color": "f143ab"
+    },
+    {
+      "name": "bug",
+      "description": "Something isn't working",
+      "color": "d73a4a"
+    },
+    {
+      "name": "documentation",
+      "description": "Improvements or additions to documentation",
+      "color": "0075ca"
+    },
+    {
+      "name": "duplicate",
+      "description": "This issue or pull request already exists",
+      "color": "cfd3d7"
+    },
+    {
+      "name": "enhancement",
+      "description": "New feature or request",
+      "color": "a2eeef"
+    },
+    {
+      "name": "good first issue",
+      "description": "Good for newcomers",
+      "color": "7057ff"
+    },
+    {
+      "name": "help wanted",
+      "description": "Extra attention is needed",
+      "color": "008672"
+    },
+    {
+      "name": "invalid",
+      "description": "This doesn't seem right",
+      "color": "e4e669"
+    },
+    {
+      "name": "question",
+      "description": "Further information is requested",
+      "color": "d876e3"
+    },
+    {
+      "name": "wontfix",
+      "description": "This will not be worked on",
+      "color": "ffffff"
+    }
+  ],
+  "issues": [
+    {
+      "number": 1,
+      "id": "I_kwDOU5ht5s8AAAABWTDVAg",
+      "title": "Next revision: co-author actions and IETF 127 submission",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-xof-schedule-collab/issues/1",
+      "state": "OPEN",
+      "author": "grittygrease",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "This is the coordination thread for the next revision of draft-sullivan-tls-xof-schedule. Proposed review leads below are invitations to divide the work, not commitments already agreed.\n\nTarget: a reviewable revision by **30 October 2026**, for the **2 November 2026, 23:59 UTC** IETF 127 Internet-Draft cutoff ([official dates](https://datatracker.ietf.org/meeting/important-dates/)).\n\n## 1. Terminology and security argument \u2014 proposed lead: Gilles, with Markku\n- [ ] Resolve John's 31 July objection: the literature's deck function is keyed, while the current definition says the underlying XOF has no key parameter and takes secrets as framed inputs. Should we rename this interface, define a keyed abstraction explicitly, or explain a precise relationship? Make the glossary, interface and security claims consistent.\n- [ ] Check the reduction for this actual construction, including the public prefix, framed secrets, branching and ratchet chain. Distinguish ideal-permutation/indifferentiability reasoning from assumptions about concrete SHAKE/TurboSHAKE.\n- [ ] Revise the 12-versus-24-round discussion using the Keccak team's 27 July explanation and the appropriate cryptanalysis references; record what remains unproved.\n\n## 2. TLS semantics, framing and state lifecycle \u2014 proposed leads: Markku and Nick, with Gilles on cryptographic implications\n- [ ] Triage Ilari's 24 July review point by point: absent versus empty input / frame(NULL), explicit ctag, the \"th\" and \"out\" tags, 48-versus-64-byte transcripts and block boundaries, and SHAKE versus cSHAKE contextualization.\n- [ ] Resolve exporter subkeying: the current text still has one Derive with hashed label and context. Decide whether to restore the two-stage property or explicitly justify a semantic change.\n- [ ] Specify hybrid secret input handling without assuming TLS implementations expose component secrets.\n- [ ] Align Ratchet pseudocode, prose, diagrams and vectors; make retirement/erasure and any Destroy operation precise. Distinguish the named Ratchet operation from the one-way property of traffic-key updates.\n- [ ] Shorten redundant text after the decisions above.\n\n## 3. Finished/binder MAC and overwrite-duplex decisions \u2014 proposed lead: Gilles, with Markku\n- [ ] Evaluate direct Derive for Finished/binders against the required MAC security properties. Retain the current dedicated MAC/two-layer structure unless a justified change is agreed; a generic XOF property alone is not the conclusion.\n- [ ] Evaluate overwrite-duplex versus the present one-shot construction, including reduction, state size, library APIs, and long/low-entropy secret absorption without exposing intermediate outputs. Record whether this belongs in this revision or later.\n- [ ] Keep a Keccak AEAD in a separate document. Revisit a generic standalone schedule/deck document only after another protocol case study, as discussed on 31 July.\n\n## 4. Implementation, vectors and performance \u2014 proposed lead: Markku\n- [ ] Bring altkdf-rs and independent checks to the four-operation, separately negotiated schedule; the July implementation used the older five-operation / cipher-suite design.\n- [ ] Publish a reproducible vector snapshot for both profiles, with exact revision and parameters, covering PSK, key exchange, resumption, exporters and KeyUpdate.\n- [ ] Recompute permutation counts from the specified bytes and a common workload, separating cached and recomputed paths and stating transcript-hash exclusions. The current draft quotes 39; do not carry older counts across versions without reproducing them.\n- [ ] Assess concrete software and RISC-V hardware implications, keeping structural savings distinct from primitive speed.\n\n## 5. Analysis and list follow-up \u2014 proposed lead: Nick\n- [ ] Agree the properties and model updates to request from Nadim: current negotiation and four-operation semantics, concurrent legacy/new schedules, profile separation, erasure/forward-secrecy claims and hybrid input semantics. Symbolic results do not settle the concrete permutation or reduced-round MAC questions.\n- [ ] Produce a proposed disposition and a TLS-list reply for each open review thread, reflecting the co-authors' decisions.\n- [ ] Collect author details, integrate agreed edits, regenerate vectors/figures, build and review the draft, and prepare submission.\n- [ ] Decide whether a short co-author call would help agree scope and divide these items.\n\nSource discussions: TLS list, 24\u201331 July 2026, under the xof-schedule-00 announcement and earlier xof-ciphers-00 thread. In particular: [Ilari's performance comparison](https://mailarchive.ietf.org/arch/msg/tls/vWlm-eN-lmt62Ue2sS0vjQ3mWPw) and [MAC condition](https://mailarchive.ietf.org/arch/msg/tls/Xf2r1S5n-a-ORA5KgM3oAUcXltE).\n\nStarting snapshot verified on 10 October: main is the sole branch/tag ref and commit 359f58e54ff08ceef96e97051f28cf13b8c5e137 has no parents.",
+      "createdAt": "2026-10-10T12:46:05Z",
+      "updatedAt": "2026-10-10T12:46:05Z",
+      "closedAt": null,
+      "comments": []
+    }
+  ],
+  "pulls": [
+    {
+      "number": 2,
+      "id": "PR_kwDOU5ht5s8AAAABI8eRWw",
+      "title": "Shorter labels, 64-bit alignment, a MAC built on the XOF, and vector generators",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-xof-schedule-collab/pull/2",
+      "state": "OPEN",
+      "author": "grittygrease",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "This is the first of two PRs, covering shorter labels, 64-bit alignment, a SHAKE256/TurboSHAKE256 MAC, and vector generation code.\n\nXOF and schedule:\n\n- Shorten derivation labels to three octets.\n- Use four-octet tags to align key material on 64-bit boundaries where preceding input lengths allow.\n- Replace KMAC256 and TurboKMAC256 with a MAC derived directly from the profile's XOF.\n- Derive exporters in two steps, over the raw label and then the context hash, rejecting labels over 65535 octets.\n- Specify hybrid components and their order from the group's shared-secret concatenation.\n- Remove the explicit MUST NOT on using a retired deck, keeping the rule in prose.\n- Shorten Security Considerations, stating the premises each security claim rests on.\n- Count costs for the handshake only: 22 invocations against 30, and 29 permutation calls against 120 for HKDF-SHA3-256.\n- Add Go and Python vector generators, with one schedule code path for both profiles, and `make vectors-check`. Regenerate the vectors, adding exporter intermediates, raw and imported PSK binders, PSK-only and hybrid cases, and the server Finished checkpoint.\n\nTLS protocol:\n\n- Allow nonempty raw external PSKs up to 65535 octets and recommend importing them.\n- Give imported PSKs their own \"ibk\" binder label.\n- Take early-data parameters (cipher suite, ALPN, early-data permission) from the PSK, including imported PSKs.\n- Require client aborts for unoffered KDFs, incompatible PSKs, KDF changes after a HelloRetryRequest, and failure to negotiate a required KDF.\n- Pin a HelloRetryRequest without the extension to the TLS 1.3 schedule.\n- State that CertificateVerify signs the negotiated KDF's transcript hash.\n\nThe optimization I mentioned, turning sibling derive steps into a single squeeze, should follow soon as a second PR. It changes more of the schedule and of the security argument, so it needs a deeper security review.\n",
+      "createdAt": "2026-10-16T23:02:41Z",
+      "updatedAt": "2026-10-16T23:02:41Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "baseRefName": "main",
+      "baseRefOid": "359f58e54ff08ceef96e97051f28cf13b8c5e137",
+      "headRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "headRefName": "labels-alignment-mac",
+      "headRefOid": "9de3fef9e9185511ab84905d96c73986cd53a216",
+      "closedAt": null,
+      "mergedAt": null,
+      "mergedBy": null,
+      "mergeCommit": null,
+      "comments": [],
+      "reviews": []
+    },
+    {
+      "number": 3,
+      "id": "PR_kwDOU5ht5s8AAAABJAB8CQ",
+      "title": "Multi-output Derive, DTLS 1.3 and Exported Authenticators",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-xof-schedule-collab/pull/3",
+      "state": "OPEN",
+      "author": "grittygrease",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "This is the second PR, with the optimization I mentioned: sibling derive steps become a single squeeze. It also adds DTLS 1.3 and Exported Authenticators, and builds on #2.\n\nXOF and schedule:\n\n- Add DeriveN, which derives sibling outputs that share a deck and a checkpoint in one call. It binds the ordered labels and lengths before a single squeeze and splits the output in order. It is used at eight fixed sites: the binder with the early residue, the early, handshake and application traffic secrets, and each sender's record keys with its Finished key or next traffic secret.\n- A full handshake costs 15 invocations and 23 permutation calls, down from 22 and 29.\n- Derive and the exporter reject a zero-length request, since TurboSHAKE256 has no zero-length output.\n- Extend the Go and Python generators and add DeriveN tests. All 162 vector values agree.\n\nTLS protocol:\n\n- DTLS 1.3 uses \"dtls13\" as its schedule label, derives sn_key with Derive, and keeps advancing each epoch's sequence number.\n- A protocol built on TLS 1.3 derives its keys with Derive and a label from a new TLS XOF Key Schedule Labels registry.\n- Exported Authenticators use the KDF's transcript hash, exporter and MAC.\n- The draft now updates RFC 9147, RFC 9258, RFC 9261 and RFC 9849.\n- A schedule_profile the client did not send gets unsupported_extension.\n\nIt also removes the NIST appendix and the KMAC row of the permutation count.\n\nDeriveN changes more of the security argument than the first PR, so this is the one that needs the deeper review. What Is Not Yet Established, in Security Considerations, lists what it still needs.\n",
+      "createdAt": "2026-10-17T09:33:05Z",
+      "updatedAt": "2026-10-17T09:33:05Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "baseRefName": "labels-alignment-mac",
+      "baseRefOid": "9de3fef9e9185511ab84905d96c73986cd53a216",
+      "headRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "headRefName": "dtls-ea-deriven",
+      "headRefOid": "9f5554a7fe4d61db15f2bc467ab69fa6754ec638",
+      "closedAt": null,
+      "mergedAt": null,
+      "mergedBy": null,
+      "mergeCommit": null,
+      "comments": [],
+      "reviews": []
+    }
+  ]
+}
