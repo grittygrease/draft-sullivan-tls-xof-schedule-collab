@@ -23,6 +23,9 @@ author:
   - fullname: Nick Sullivan
     organization: Cryptography Consulting LLC
     email: nicholas.sullivan+ietf@gmail.com
+  - fullname: Markku-Juhani O. Saarinen
+    organization: Tampere University, Finland
+    email: markku-juhani.saarinen@tuni.fi
 
 normative:
   RFC9846:
