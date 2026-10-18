@@ -2236,13 +2236,13 @@ HelloRetryRequest.<a href="#section-5.7-4" class="pilcrow">¶</a></p>
 <a href="#section-5.7.1" class="section-number selfRef">5.7.1. </a><a href="#name-ech-and-kdf-selection" class="section-name selfRef">ECH and KDF Selection</a>
           </h4>
 <p id="section-5.7.1-1">The server applies the rules of <a href="#cipher-suites" class="auto internal xref">Section 6</a> to ClientHelloInner if
-it accepts ECH and to ClientHelloOuter if it rejects it, and the two may
+it accepts ECH and to ClientHelloOuter if it rejects it.  The two may
 offer different KDFs.  The client learns which from the server's first
-message, as in <span><a href="https://rfc-editor.org/rfc/rfc9849#section-6.1.4" class="relref">Section 6.1.4</a> of [<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>, computing its confirmation
-under the KDF that message selects, or as in <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> if it selects
-none, and then applies the rules of <a href="#cipher-suites" class="auto internal xref">Section 6</a> to that
-ClientHello.  A confirmation the client cannot compute counts as a
-rejection.  The KDF of the HPKE suite that encrypts ClientHelloInner
+message, as in <span><a href="https://rfc-editor.org/rfc/rfc9849#section-6.1.4" class="relref">Section 6.1.4</a> of [<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>.  It computes the
+confirmation under the KDF that message selects, or as in <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> if
+it selects none, and a confirmation it cannot compute counts as a
+rejection.  It then applies the rules of <a href="#cipher-suites" class="auto internal xref">Section 6</a> to the same
+ClientHello.  The KDF of the HPKE suite that encrypts ClientHelloInner
 plays no part in this selection.<a href="#section-5.7.1-1" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -3209,8 +3209,7 @@ MAC, that fails verification, as in TLS 1.3.<a href="#section-13-2.3.1" class="p
 </li>
         <li class="normal" id="section-13-2.4">
           <p id="section-13-2.4.1">handshake_failure:  the server's first message omits schedule_profile
-when local policy requires a KDF of this document, except in the
-ClientHelloOuter handshake after an ECH rejection (<a href="#cipher-suites" class="auto internal xref">Section 6</a>).<a href="#section-13-2.4.1" class="pilcrow">¶</a></p>
+when local policy requires a KDF of this document (<a href="#cipher-suites" class="auto internal xref">Section 6</a>).<a href="#section-13-2.4.1" class="pilcrow">¶</a></p>
 </li>
       </ul>
 </section>
@@ -3783,10 +3782,10 @@ DeriveN are disjoint slices of one answer.  In the random-oracle game,
 an adversary that never queries a string carrying the secret cannot
 distinguish those outputs from independent uniform strings.  For a
 secret with h bits of min-entropy conditioned on the adversary's view,
-the chance of such a query is at most q / 2^h in q queries, so at most
-q / 2^256 for an external PSK with 256 bits of min-entropy
-(<a href="#psk-entropy" class="auto internal xref">Section 16.3</a>).  These are bounds in that game, subject to the
-preceding composition step, not bounds for the complete protocol.<a href="#section-16.6.2-3" class="pilcrow">¶</a></p>
+the chance of such a query is at most q / 2^h in q queries.  For an
+external PSK with 256 bits of min-entropy (<a href="#psk-entropy" class="auto internal xref">Section 16.3</a>), that is
+q / 2^256.  These are bounds in that game, subject to the preceding
+composition step, not bounds for the complete protocol.<a href="#section-16.6.2-3" class="pilcrow">¶</a></p>
 <p id="section-16.6.2-4">If the DeriveN answer is uniform, revealing some slices leaves the
 others uniform and independent, provided the adversary has not queried
 the secret-bearing input and has learned neither the full output tuple,
