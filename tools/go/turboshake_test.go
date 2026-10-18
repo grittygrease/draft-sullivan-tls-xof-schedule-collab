@@ -64,10 +64,10 @@ func TestProfilesDifferButShareTheListing(t *testing.T) {
 
 	run := func(p *Profile) []byte {
 		e := p.Init()
-		e.Absorb("psk", []byte("psk"))
+		e.Absorb("psk_", []byte("psk"))
 		h := e.Ratchet()
-		h.Absorb("dh", []byte("ss"))
-		return h.DeriveSecret("c hs traffic", th)
+		h.Absorb("shs_", []byte("ss"))
+		return h.DeriveSecret("cht", th)
 	}
 
 	a := run(SHAKE256)

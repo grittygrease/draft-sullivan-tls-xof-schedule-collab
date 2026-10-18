@@ -9,8 +9,8 @@
 // This package was written from the draft text alone.
 //
 // A deck is a running sequence of framed inputs. The profile's DF is the
-// XOF over that sequence. Four operations drive the schedule: Init,
-// Absorb, Derive and Ratchet. Derive is one DF call over the framed
+// XOF over that sequence. Five operations drive the schedule: Init,
+// Absorb, Derive, DeriveN and Ratchet. A terminal is one DF call over the framed
 // path, so every derived value is byte-exact and testable in isolation;
 // nothing here needs to clone an unfinalized sponge.
 package main
@@ -30,6 +30,11 @@ const (
 	tagSeed = "seed" // the seed of Init(seed)
 	tagOut  = "out_" // the output length of a Derive
 )
+
+// dtlsScheduleLabel is schedule_label on a DTLS 1.3 connection: the
+// "dtls13" label prefix of RFC 9147, Section 5.9, with no trailing
+// space.
+const dtlsScheduleLabel = "dtls13"
 
 // Profile parameters. Both profiles of the draft use 64 octets.
 const (
@@ -117,14 +122,20 @@ func (p *Profile) TranscriptHash(x []byte) []byte { return p.th(x) }
 //
 // The zero Deck is not valid; obtain one from Init or FromSecret.
 type Deck struct {
-	p   *Profile
-	seq []byte
+	p     *Profile
+	label string // schedule_label, carried across a Ratchet
+	seq   []byte
 }
 
 // Init starts a deck by framing schedule_label. Every deck is Init'd the
 // same way, so every keyed sequence opens with frame(schedule_label).
-func (p *Profile) Init() *Deck {
-	return &Deck{p: p, seq: frame(nil, []byte(scheduleLabel))}
+func (p *Profile) Init() *Deck { return p.initLabel(scheduleLabel) }
+
+// InitDTLS is Init on a DTLS 1.3 connection, framing "dtls13".
+func (p *Profile) InitDTLS() *Deck { return p.initLabel(dtlsScheduleLabel) }
+
+func (p *Profile) initLabel(label string) *Deck {
+	return &Deck{p: p, label: label, seq: frame(nil, []byte(label))}
 }
 
 // FromSecret returns a deck seeded with a retained octet-string secret:
@@ -143,6 +154,13 @@ func (d *Deck) seed(secret []byte) {
 	d.seq = frame(d.seq, secret)
 }
 
+// FromSecretDTLS is FromSecret on a DTLS 1.3 connection.
+func (p *Profile) FromSecretDTLS(secret []byte) *Deck {
+	d := p.InitDTLS()
+	d.seed(secret)
+	return d
+}
+
 // Absorb feeds one tagged input into the running deck:
 //
 //	D = D || frame(tag) || frame(v)
@@ -150,8 +168,68 @@ func (d *Deck) seed(secret []byte) {
 // It is the role HKDF-Extract's mixing step plays in RFC 9846. Absorb
 // produces no output.
 func (d *Deck) Absorb(tag string, v []byte) {
+	switch tag {
+	case "psk_", "shs_", "th__", "ctx_":
+	default:
+		panic("tls13deck: invalid Absorb tag")
+	}
 	d.seq = frame(d.seq, []byte(tag))
 	d.seq = frame(d.seq, v)
+}
+
+// Output describes one registered label and its octet length. The order
+// and lengths are part of the fixed protocol recipe, even if a caller
+// only needs one of the resulting slices.
+type Output struct {
+	Label  string
+	Length int
+}
+
+// DeriveN binds all descriptors before one XOF call and partitions its
+// output in descriptor order. Empty contexts are omitted. The parent
+// deck is unchanged. Each result owns its storage independently.
+func (d *Deck) DeriveN(outputs []Output, ctag string, context []byte) [][]byte {
+	if len(outputs) < 2 || len(outputs) > maxFrame {
+		panic("tls13deck: descriptor count out of range")
+	}
+	seen := make(map[string]bool, len(outputs))
+	total := 0
+	for _, o := range outputs {
+		switch o.Label {
+		case "ebk", "ibk", "rbk", "drv", "cet", "ees", "cht", "sht", "cat", "sat", "exs", "rss", "fin", "mac", "key", "upd", "rsp", "exl", "exp", "ipk", "eca", "hca", "snk":
+		default:
+			panic("tls13deck: unregistered output label")
+		}
+		if seen[o.Label] || o.Length < 1 || o.Length > maxFrame-total {
+			panic("tls13deck: invalid descriptor length, sum, or duplicate")
+		}
+		seen[o.Label] = true
+		total += o.Length
+	}
+	seq := append([]byte(nil), d.seq...)
+	if len(context) != 0 {
+		if ctag != ctagTranscript && ctag != ctagContext {
+			panic("tls13deck: invalid context tag")
+		}
+		seq = frame(seq, []byte(ctag))
+		seq = frame(seq, context)
+	}
+	seq = frame(seq, []byte("outs"))
+	seq = frame(seq, uint16be(len(outputs)))
+	for _, o := range outputs {
+		seq = frame(seq, []byte(o.Label))
+		seq = frame(seq, []byte(tagOut))
+		seq = frame(seq, uint16be(o.Length))
+	}
+	z := d.p.df(seq, total)
+	result := make([][]byte, len(outputs))
+	offset := 0
+	for i, o := range outputs {
+		result[i] = append([]byte(nil), z[offset:offset+o.Length]...)
+		offset += o.Length
+	}
+	erase(z)
+	return result
 }
 
 // context tags. The context of a Derive is a transcript checkpoint
@@ -218,7 +296,7 @@ func (d *Deck) Expand(label string, context []byte, l int) []byte {
 func (d *Deck) Ratchet() *Deck {
 	residue := d.derive("drv", ctagTranscript, nil, SecretLen)
 
-	next := d.p.Init()
+	next := d.p.initLabel(d.label)
 	next.seed(residue)
 
 	erase(residue)

@@ -16,6 +16,14 @@ endif
 
 # Regenerate the Test Vectors appendix with the Go generator and the
 # independent Python verifier in tools/, and require both to match the
+# Run the DeriveN measurement test, which checks the invocation and
+# permutation counts the draft states for one full handshake.
+check:: check-measurements
+
+check-measurements:
+	python3 -B -m unittest discover -s tools/pyverify -p test_derive_n.py
+.PHONY: check-measurements
+
 # appendix value for value. Needs Go 1.24 or later and Python 3.
 vectors-check:
 	@python3 tools/pyverify/rfc9861_vectors.py
