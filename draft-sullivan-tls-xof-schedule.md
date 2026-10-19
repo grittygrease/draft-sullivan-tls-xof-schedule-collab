@@ -25,6 +25,10 @@ author:
   - fullname: Markku-Juhani O. Saarinen
     organization: Tampere University, Finland
     email: markku-juhani.saarinen@tuni.fi
+  - ins: G. Van Assche
+    name: Gilles Van Assche
+    organization: STMicroelectronics, Belgium
+    email: gilles.vanassche@st.com
 
 normative:
   RFC9846:
