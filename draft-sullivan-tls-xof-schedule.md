@@ -1535,7 +1535,7 @@ Keccak-p\[1600,12\].  This profile mirrors the TLS13_TURBOSHAKE256
 profile's framing exactly:  domain separation comes from the same
 framed-prefix mechanism the TurboSHAKE profile uses, an absorbed
 frame(schedule_label) at Init ({{deck-interface}}), not from cSHAKE's
-function-name and customization-string inputs.  The two profiles' deck engines
+function-name and customization-string inputs.  The two profiles' dec engines
 therefore differ only in the underlying permutation, so derivation
 ({{expand-op}}) and the MAC construction ({{mac-op}}) are shared by both
 profiles.
@@ -2351,7 +2351,7 @@ and the figure labels the dec engine side generically.
          +-> "res master"  TH_CF          +-> resumption_secret
          |   = resumption_secret          |
 ~~~
-{: #comparison-figure title="TLS 1.3 with Imported PSKs and the Deck
+{: #comparison-figure title="TLS 1.3 with Imported PSKs and the Dec
 Engine-Based Key Schedule"}
 
 The imported-PSK binder branch uses the label from {{Section 5.2 of
