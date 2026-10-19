@@ -1510,8 +1510,8 @@ value = Derive(D, label, [context], [L])
    profile's framing exactly: domain separation comes from the same
    framed-prefix mechanism the TurboSHAKE profile uses, an absorbed
    frame(schedule_label) at Init (Section 7.1), not from cSHAKE's
-   function-name and customization-string inputs.  The two profiles'
-   deck engines therefore differ only in the underlying permutation, so
+   function-name and customization-string inputs.  The two profiles' dec
+   engines therefore differ only in the underlying permutation, so
    derivation (Section 5.1) and the MAC construction (Section 5.2) are
    shared by both profiles.
 
@@ -2478,8 +2478,8 @@ Appendix A.  Comparison with TLS 1.3
           +-> "res master"  TH_CF          +-> resumption_secret
           |   = resumption_secret          |
 
-     Figure 2: TLS 1.3 with Imported PSKs and the Deck Engine-Based
-                              Key Schedule
+   Figure 2: TLS 1.3 with Imported PSKs and the Dec Engine-Based Key
+                                Schedule
 
    The imported-PSK binder branch uses the label from Section 5.2 of
    [RFC9258].
