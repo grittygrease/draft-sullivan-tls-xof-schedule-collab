@@ -24,7 +24,7 @@ the reduced-round TurboSHAKE256.  This document updates RFC 9147, RFC
 <meta content="key schedule" name="keyword">
 <meta content="KDF" name="keyword">
 <meta content="XOF" name="keyword">
-<meta content="deck function" name="keyword">
+<meta content="dec engine" name="keyword">
 <meta content="duplex" name="keyword">
 <meta content="sponge" name="keyword">
 <meta content="cSHAKE" name="keyword">
@@ -1184,7 +1184,7 @@ the reduced-round TurboSHAKE256.  This document updates RFC 9147, RFC
                 <p id="section-toc.1-1.1.2.2.1" class="keepWithNext"><a href="#section-1.2" class="auto internal xref">1.2</a>.  <a href="#name-scope" class="internal xref">Scope</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.1.2.3">
-                <p id="section-toc.1-1.1.2.3.1" class="keepWithNext"><a href="#section-1.3" class="auto internal xref">1.3</a>.  <a href="#name-deck-functions" class="internal xref">Deck Functions</a></p>
+                <p id="section-toc.1-1.1.2.3.1" class="keepWithNext"><a href="#section-1.3" class="auto internal xref">1.3</a>.  <a href="#name-dec-engine" class="internal xref">Dec Engine</a></p>
 </li>
             </ul>
 </li>
@@ -1245,10 +1245,10 @@ the reduced-round TurboSHAKE256.  This document updates RFC 9147, RFC
             </ul>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7">
-            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-the-deck-schedule" class="internal xref">The Deck Schedule</a></p>
+            <p id="section-toc.1-1.7.1"><a href="#section-7" class="auto internal xref">7</a>.  <a href="#name-the-dec-engine-based-key-sc" class="internal xref">The Dec Engine-Based Key Schedule</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1">
-                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-the-deck-schedule-interface" class="internal xref">The Deck Schedule Interface</a></p>
+                <p id="section-toc.1-1.7.2.1.1"><a href="#section-7.1" class="auto internal xref">7.1</a>.  <a href="#name-the-dec-engine-interface" class="internal xref">The Dec Engine Interface</a></p>
 <ul class="compact toc ulBare ulEmpty">
 <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.7.2.1.2.1">
                     <p id="section-toc.1-1.7.2.1.2.1.1"><a href="#section-7.1.1" class="auto internal xref">7.1.1</a>.  <a href="#name-operations" class="internal xref">Operations</a></p>
@@ -1482,17 +1482,17 @@ acceptance computations.  It is negotiated in the schedule_profile
 extension of <a href="#cipher-suites" class="auto internal xref">Section 6</a>, independently of the cipher suite.  A
 connection that negotiates no KDF is a TLS 1.3 connection:  absence is
 the default, and TLS 1.3's own schedule needs no identifier of its own.<a href="#section-1-4" class="pilcrow">¶</a></p>
-<p id="section-1-5">Each KDF defined here is a profile of the same deck function.  This
-extendable-output function absorbs the schedule's inputs as
+<p id="section-1-5">Each KDF defined here is a profile of the same XOF.  This
+XOF is viewed under the interface of a doubly extendable cryptographic (dec) engine, where it absorbs the schedule's inputs as
 length-framed strings and squeezes each derived value from the
 accumulated sequence.  It is defined once for both profiles in
-<a href="#deck-schedule" class="auto internal xref">Section 7</a>, and each selects a different permutation for it:
+<a href="#dec-schedule" class="auto internal xref">Section 7</a>, and each selects a different permutation for it:
 TLS13_TURBOSHAKE256 (<a href="#turboshake-profile" class="auto internal xref">Section 8</a>) uses the 12-round
 TurboSHAKE256 <span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, and TLS13_SHAKE256 (<a href="#shake-profile" class="auto internal xref">Section 9</a>) uses
 the 24-round SHAKE256 <span>[<a href="#FIPS202" class="cite xref">FIPS202</a>]</span>.  Finished and PSK binder values,
 including an Exported Authenticator's Finished, use one MAC
 (<a href="#mac-op" class="auto internal xref">Section 5.2</a>).  The Encrypted Client Hello acceptance value is produced
-by the deck's output operation, Derive (<a href="#ech-generic" class="auto internal xref">Section 5.7</a>).<a href="#section-1-5" class="pilcrow">¶</a></p>
+by the dec engine's output operation, Derive (<a href="#ech-generic" class="auto internal xref">Section 5.7</a>).<a href="#section-1-5" class="pilcrow">¶</a></p>
 <div id="design-goals">
 <section id="section-1.1">
         <h3 id="name-design-goals">
@@ -1500,18 +1500,18 @@ by the deck's output operation, Derive (<a href="#ech-generic" class="auto inter
         </h3>
 <p id="section-1.1-1">A KDF turns the whole derivation surface of a connection into one named,
 testable object.  Every value comes from one permutation, every query is
-injectively framed (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>), DeriveN outputs occupy disjoint
+injectively framed (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>), DeriveN outputs occupy disjoint
 slices, and <a href="#test-vectors" class="auto internal xref">Appendix D</a> gives byte-exact values for both profiles.
 Neither KDF uses SHA-2, HMAC, or HKDF in any role, and the
 correspondence with TLS 1.3 can be audited shape by shape (<a href="#shapes" class="auto internal xref">Section 7.3</a>).<a href="#section-1.1-1" class="pilcrow">¶</a></p>
 <p id="section-1.1-2">The alternative is to keep TLS 1.3's HKDF schedule and give it a SHA-3
 hash.<a href="#section-1.1-2" class="pilcrow">¶</a></p>
-<p id="section-1.1-3">The deck costs fewer permutation calls than that alternative.  HKDF is
+<p id="section-1.1-3">The dec engine costs fewer permutation calls than that alternative.  HKDF is
 built on HMAC, and every HMAC call nests two hash calls, overhead that
 exists only to key a hash not built for keying.  A keyed sponge needs
 no such wrapper:  it produces each Derive output in one squeeze, with no
 separate extract step between stages.<a href="#section-1.1-3" class="pilcrow">¶</a></p>
-<p id="section-1.1-4">Over the representative handshake of <a href="#comparison" class="auto internal xref">Appendix A</a>, the deck costs 23
+<p id="section-1.1-4">Over the representative handshake of <a href="#comparison" class="auto internal xref">Appendix A</a>, the dec engine costs 23
 Keccak permutation calls against 120 for a hash-only HKDF-SHA3-256 over
 the same permutation (<a href="#permutation-count" class="auto internal xref">Appendix A.2</a>).  HMAC accounts for four
 permutation calls in every HKDF operation, two for each of its nested
@@ -1540,20 +1540,20 @@ cipher suite continues to name a hash, which under a KDF of this
 document governs nothing in the key schedule (<a href="#profile-governs" class="auto internal xref">Section 6.1</a>).<a href="#section-1.2-2" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="deck-functions">
+<div id="dec-functions">
 <section id="section-1.3">
-        <h3 id="name-deck-functions">
-<a href="#section-1.3" class="section-number selfRef">1.3. </a><a href="#name-deck-functions" class="section-name selfRef">Deck Functions</a>
+        <h3 id="name-dec-engine">
+<a href="#section-1.3" class="section-number selfRef">1.3. </a><a href="#name-dec-engine" class="section-name selfRef">Dec Engine</a>
         </h3>
-<p id="section-1.3-1">A key schedule is a derivation tree.  A deck function
-(<a href="#deck-interface" class="auto internal xref">Section 7.1</a>) expresses that tree directly:  absorb a stage's
+<p id="section-1.3-1">A key schedule is a derivation tree.  A dec engine
+(<a href="#dec-interface" class="auto internal xref">Section 7.1</a>) expresses that tree directly:  absorb a stage's
 inputs into a running accumulator, derive each leaf from a clone, and
 ratchet the accumulator into the next stage.  One XOF does the work HKDF
 splits between Extract, at the stage boundaries, and Expand-Label, at
 the leaves.<a href="#section-1.3-1" class="pilcrow">¶</a></p>
 <p id="section-1.3-2">The construction takes no key:  a secret is an ordinary framed input.
 The operations named here, Init, Absorb, Derive, DeriveN, and Ratchet,
-are defined normatively in <a href="#deck-schedule" class="auto internal xref">Section 7</a>.<a href="#section-1.3-2" class="pilcrow">¶</a></p>
+are defined normatively in <a href="#dec-schedule" class="auto internal xref">Section 7</a>.<a href="#section-1.3-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -1577,7 +1577,7 @@ Identifier and negotiated in the schedule_profile extension
 (<a href="#cipher-suites" class="auto internal xref">Section 6</a>).  It defines every key-schedule computation of the
 connection (<a href="#schedule-profiles" class="auto internal xref">Section 3</a>) and determines the key schedule:  a
 TLS13_TURBOSHAKE256 or TLS13_SHAKE256 identifier implies this
-document's deck schedule (<a href="#deck-schedule" class="auto internal xref">Section 7</a>), and absence of the
+document's dec engine-based key schedule (<a href="#dec-schedule" class="auto internal xref">Section 7</a>), and absence of the
 extension implies TLS 1.3's HKDF schedule over the cipher suite's
 hash.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
 </dd>
@@ -1592,67 +1592,77 @@ hash.<a href="#section-2-3.2.1" class="pilcrow">¶</a></p>
           <p id="section-2-3.6.1">The cipher suite associated with a PSK (<a href="#governing-profile" class="auto internal xref">Section 4</a>).<a href="#section-2-3.6.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.7">trunk (stage trunk):</dt>
+<dt id="section-2-3.7">dec engine:</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.8">
-          <p id="section-2-3.8.1">The running deck accumulator for a schedule stage (E, H, or T), which
+          <p id="section-2-3.8.1">A doubly-extendable cryptographic (dec) stateful object, whose input is a sequence of strings, and whose output is a hash of that input.<a href="#section-2-3.8.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.9">dec accumulator:</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.10">
+          <p id="section-2-3.10.1">The state of a dec engine, which materializes the sequence of strings it received so far.<a href="#section-2-3.10.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.11">trunk (stage trunk):</dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.12">
+          <p id="section-2-3.12.1">The running dec accumulator for a schedule stage (E, H, or T), which
 absorbs the stage's inputs, is cloned for each of the stage's leaf
 outputs or DeriveN output tuples, and yields an internal squeezed
-residue that seeds the next stage's trunk at the stage boundary.<a href="#section-2-3.8.1" class="pilcrow">¶</a></p>
+residue that seeds the next stage's trunk at the stage boundary.<a href="#section-2-3.12.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.9">shared_secret:</dt>
-        <dd style="margin-left: 1.5em" id="section-2-3.10">
-          <p id="section-2-3.10.1">The asymmetric shared secret, computed as in <span><a href="https://rfc-editor.org/rfc/rfc9846#section-7.4" class="relref">Section 7.4</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>.<a href="#section-2-3.10.1" class="pilcrow">¶</a></p>
-</dd>
-        <dd class="break"></dd>
-<dt id="section-2-3.11">Nk, Nn:</dt>
-        <dd style="margin-left: 1.5em" id="section-2-3.12">
-          <p id="section-2-3.12.1">The AEAD key and nonce lengths of the selected cipher suite, in
-octets.<a href="#section-2-3.12.1" class="pilcrow">¶</a></p>
-</dd>
-        <dd class="break"></dd>
-<dt id="section-2-3.13">FLen:</dt>
+<dt id="section-2-3.13">shared_secret:</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.14">
-          <p id="section-2-3.14.1">The length of the verify_data of a Finished message, including an
-Exported Authenticator's, and of a PSK binder: 64 octets in both
-profiles of this document.<a href="#section-2-3.14.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.14.1">The asymmetric shared secret, computed as in <span><a href="https://rfc-editor.org/rfc/rfc9846#section-7.4" class="relref">Section 7.4</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>.<a href="#section-2-3.14.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.15">uint16(n):</dt>
+<dt id="section-2-3.15">Nk, Nn:</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.16">
-          <p id="section-2-3.16.1">The two-octet big-endian encoding of n, as in the TLS presentation
-language.<a href="#section-2-3.16.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.16.1">The AEAD key and nonce lengths of the selected cipher suite, in
+octets.<a href="#section-2-3.16.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.17">||:</dt>
+<dt id="section-2-3.17">FLen:</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.18">
-          <p id="section-2-3.18.1">Octet-string concatenation.<a href="#section-2-3.18.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.18.1">The length of the verify_data of a Finished message, including an
+Exported Authenticator's, and of a PSK binder: 64 octets in both
+profiles of this document.<a href="#section-2-3.18.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.19">x[a..b]:</dt>
+<dt id="section-2-3.19">uint16(n):</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.20">
-          <p id="section-2-3.20.1">Octets a through b-1 of the octet string x, indexed from zero.<a href="#section-2-3.20.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.20.1">The two-octet big-endian encoding of n, as in the TLS presentation
+language.<a href="#section-2-3.20.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.21">frame(x):</dt>
+<dt id="section-2-3.21">||:</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.22">
-          <p id="section-2-3.22.1">uint16(len(x)) || x, where len(x) is the octet length of x.<a href="#section-2-3.22.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.22.1">Octet-string concatenation.<a href="#section-2-3.22.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.23"></dt>
+<dt id="section-2-3.23">x[a..b]:</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.24">
-          <p id="section-2-3.24.1">Strings are length-prefixed only:  they are not null-terminated or
-otherwise padded after x.  Both profiles of this document build every
-derivation input from framed items, so inputs are injectively encoded.<a href="#section-2-3.24.1" class="pilcrow">¶</a></p>
+          <p id="section-2-3.24.1">Octets a through b-1 of the octet string x, indexed from zero.<a href="#section-2-3.24.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-2-3.25"></dt>
+<dt id="section-2-3.25">frame(x):</dt>
         <dd style="margin-left: 1.5em" id="section-2-3.26">
-          <p id="section-2-3.26.1">A uint16 encodes 65535, so frame(x) carries any x of 0xFFFF octets or
+          <p id="section-2-3.26.1">uint16(len(x)) || x, where len(x) is the octet length of x.<a href="#section-2-3.26.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.27"></dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.28">
+          <p id="section-2-3.28.1">Strings are length-prefixed only:  they are not null-terminated or
+otherwise padded after x.  Both profiles of this document build every
+derivation input from framed items, so inputs are injectively encoded.<a href="#section-2-3.28.1" class="pilcrow">¶</a></p>
+</dd>
+        <dd class="break"></dd>
+<dt id="section-2-3.29"></dt>
+        <dd style="margin-left: 1.5em" id="section-2-3.30">
+          <p id="section-2-3.30.1">A uint16 encodes 65535, so frame(x) carries any x of 0xFFFF octets or
 fewer, and longer inputs do not occur:  variable-length public values
 are reduced by the transcript hash or explicitly bounded before
 framing, and the one variable-length secret input, an external PSK, is
-bounded by <a href="#psk-importer" class="auto internal xref">Section 10</a>.<a href="#section-2-3.26.1" class="pilcrow">¶</a></p>
+bounded by <a href="#psk-importer" class="auto internal xref">Section 10</a>.<a href="#section-2-3.30.1" class="pilcrow">¶</a></p>
 </dd>
       <dd class="break"></dd>
 </dl>
@@ -1733,8 +1743,8 @@ schedule_profile extension (<a href="#cipher-suites" class="auto internal xref">
 cipher suite.  A KDF specifies:<a href="#section-3-1" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-3-2.1">
-          <p id="section-3-2.1.1">the XOF over which its deck schedule and MAC are instantiated
-(<a href="#deck-schedule" class="auto internal xref">Section 7</a>).<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
+          <p id="section-3-2.1.1">the XOF over which its dec engine-based key schedule and MAC are instantiated
+(<a href="#dec-schedule" class="auto internal xref">Section 7</a>).<a href="#section-3-2.1.1" class="pilcrow">¶</a></p>
 </li>
         <li class="normal" id="section-3-2.2">
           <p id="section-3-2.2.1">SecretLen, the length of stage and traffic secrets.<a href="#section-3-2.2.1" class="pilcrow">¶</a></p>
@@ -1782,7 +1792,7 @@ registering a TLS KDF Identifier (<a href="#iana-considerations" class="auto int
 definition covers every computation listed above.<a href="#section-3-3" class="pilcrow">¶</a></p>
 <p id="section-3-4">Every derivation of a KDF MUST bind at least the following into the
 input of the underlying primitive: a protocol identifier (the KDFs of
-this document frame schedule_label, <a href="#deck-schedule" class="auto internal xref">Section 7</a>), each output
+this document frame schedule_label, <a href="#dec-schedule" class="auto internal xref">Section 7</a>), each output
 label and length (a KDF MAY instead fix the length of an internal stage
 secret as a constant, provided the operation that produces it is
 domain-separated from every variable-length operation), the transcript
@@ -1793,7 +1803,7 @@ and ordered partition.  Distinct canonical input sequences have distinct
 encodings.  Outputs of one DeriveN share a query and occupy disjoint
 slices (<a href="#domain-separation" class="auto internal xref">Section 16.8</a>).<a href="#section-3-4" class="pilcrow">¶</a></p>
 <p id="section-3-5">Both profiles of this document bind each output length as uint16.
-DeriveN also bounds their sum to 65535 octets (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>), so
+DeriveN also bounds their sum to 65535 octets (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>), so
 no invocation produces more than 65535 octets.  The exporter is the one
 derivation whose length is caller-chosen, and <a href="#exporters-generic" class="auto internal xref">Section 5.6</a> says
 which requests it rejects.  Every other output length in this document
@@ -1809,7 +1819,7 @@ far below the bound.<a href="#section-3-5" class="pilcrow">¶</a></p>
       </h2>
 <p id="section-4-1">The negotiated KDF governs the whole key schedule of a connection, the
 role SHA-256 or SHA-384 plays in <span><a href="https://rfc-editor.org/rfc/rfc9846#section-7.1" class="relref">Section 7.1</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>.  Its XOF
-runs every derivation of the schedule (<a href="#deck-schedule" class="auto internal xref">Section 7</a>).<a href="#section-4-1" class="pilcrow">¶</a></p>
+runs every derivation of the schedule (<a href="#dec-schedule" class="auto internal xref">Section 7</a>).<a href="#section-4-1" class="pilcrow">¶</a></p>
 <p id="section-4-2">A PSK binder is computed before the server selects a cipher suite, and
 verified under the KDF the PSK is bound to.  As in <span><a href="https://rfc-editor.org/rfc/rfc9846#section-4.3.11" class="relref">Section 4.3.11</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span>, a server MUST verify the binder of any PSK it selects.  The
 binder is keyed by a secret derived under that KDF
@@ -1864,9 +1874,9 @@ parameters is not eligible for early data.<a href="#section-4-8" class="pilcrow"
       </h2>
 <p id="section-5-1">Every derivation in this document that is keyed by a retained
 octet-string secret, rather than by a live stage of a profile's
-schedule, is a deck session rooted at that secret (<a href="#deck-schedule" class="auto internal xref">Section 7</a>),
-specified once for both profiles in <a href="#expand-op" class="auto internal xref">Section 5.1</a> since the deck is
-identical up to its permutation.  MAC, which computes the Finished and
+schedule, is a dec engine rooted at that secret (<a href="#dec-schedule" class="auto internal xref">Section 7</a>),
+specified once for both profiles in <a href="#expand-op" class="auto internal xref">Section 5.1</a> since the dec engine is
+identical up to the underlying cryptographic permutation.  MAC, which computes the Finished and
 PSK binder tags, is one such derivation (<a href="#mac-op" class="auto internal xref">Section 5.2</a>).  The stage
 schedule is also the same for both profiles (<a href="#key-schedule" class="auto internal xref">Section 7.4</a>), and only
 DF differs (<a href="#turboshake-profile" class="auto internal xref">Section 8</a>, <a href="#shake-profile" class="auto internal xref">Section 9</a>).<a href="#section-5-1" class="pilcrow">¶</a></p>
@@ -1876,7 +1886,7 @@ DF differs (<a href="#turboshake-profile" class="auto internal xref">Section 8</
 <a href="#section-5.1" class="section-number selfRef">5.1. </a><a href="#name-deriving-from-a-retained-se" class="section-name selfRef">Deriving from a Retained Secret</a>
         </h3>
 <p id="section-5.1-1">A value keyed by a retained octet-string secret uses Derive or DeriveN
-(<a href="#deck-interface" class="auto internal xref">Section 7.1</a>) whose deck is seeded with that secret rather than
+(<a href="#dec-interface" class="auto internal xref">Section 7.1</a>) whose dec engine is seeded with that secret rather than
 run as a live stage trunk.  The seed is the secret itself: Init(secret),
 the same way a ratchet seeds the next stage with its residue.  Derive
 then adds the context under the "ctx_" tag if any, the label, and the
@@ -1895,7 +1905,7 @@ value = Derive(D, label, [context], [L])
 <p id="section-5.1-3">label is a 3-octet label registered in the TLS XOF Key Schedule Labels
 registry (<a href="#iana-labels" class="auto internal xref">Section 15.3</a>), whose initial contents are the labels of
 <a href="#labels" class="auto internal xref">Section 7.2</a>, context is an octet string, and L is the output length in
-octets.  Every item is length-framed by the deck
+octets.  Every item is length-framed by the dec engine
 (<a href="#domain-separation" class="auto internal xref">Section 16.8</a>).  DeriveN binds the ordered labels and lengths
 before one squeeze and partitions that output into disjoint slices.  An
 empty context is omitted rather than framed as an empty value, and
@@ -1957,7 +1967,7 @@ write_iv.<a href="#section-5.1-6" class="pilcrow">¶</a></p>
         </h3>
 <p id="section-5.2-1">MAC(key, message, L) computes every tag in this document:  the PSK
 binder, both Finished values, and the Finished of an Exported
-Authenticator (<a href="#exported-authenticators" class="auto internal xref">Section 14.2</a>).  It is a Derive over a deck
+Authenticator (<a href="#exported-authenticators" class="auto internal xref">Section 14.2</a>).  It is a Derive over a dec engine
 seeded with the key (<a href="#expand-op" class="auto internal xref">Section 5.1</a>), with the label "mac" and the
 message as its context:<a href="#section-5.2-1" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-5.2-2">
@@ -1966,7 +1976,7 @@ MAC(key, message, L) = Derive(Init(key), "mac", message, L)
 </pre><a href="#section-5.2-2" class="pilcrow">¶</a>
 </div>
 <p id="section-5.2-3">Every MAC of this document takes a 64-octet key and a 64-octet
-transcript hash as its message, so its input to DF (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>)
+transcript hash as its message, so its input to DF (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>)
 is these 167 octets, with the key and the message each starting on an
 8-octet boundary (<a href="#labels" class="auto internal xref">Section 7.2</a>).  The listing is the TLS 1.3 layout.  A
 DTLS 1.3 connection substitutes "dtls13" for "tls13 ", with the same
@@ -2141,7 +2151,7 @@ binder_key.  binder_label is "ebk" for a non-imported external PSK,
 replacing "ext binder", "ibk" for an imported PSK, replacing "imp
 binder" from <span><a href="https://rfc-editor.org/rfc/rfc9258#section-5.2" class="relref">Section 5.2</a> of [<a href="#RFC9258" class="cite xref">RFC9258</a>]</span>, and "rbk" for a resumption PSK,
 replacing "res binder".<a href="#section-5.5-6" class="pilcrow">¶</a></p>
-<p id="section-5.5-7">The handshake deck is seeded from this DeriveN (<a href="#key-schedule" class="auto internal xref">Section 7.4</a>), so
+<p id="section-5.5-7">The handshake dec engine is seeded from this DeriveN (<a href="#key-schedule" class="auto internal xref">Section 7.4</a>), so
 the early residue depends on the binder label, so equal non-imported
 external, imported, and resumption PSK bytes lead to different
 handshake-stage inputs.  Without a PSK there is no binder DeriveN.<a href="#section-5.5-7" class="pilcrow">¶</a></p>
@@ -2161,7 +2171,7 @@ that sender's record keys (<a href="#record-keys-generic" class="auto internal x
 <p id="section-5.5-11">Binders are computed before the ServerHello.  This is possible in both
 profiles because the early trunk binds no cipher suite:  the client
 clones the early trunk to obtain binder_key at ClientHello time, in
-either profile (<a href="#deck-schedule" class="auto internal xref">Section 7</a>).<a href="#section-5.5-11" class="pilcrow">¶</a></p>
+either profile (<a href="#dec-schedule" class="auto internal xref">Section 7</a>).<a href="#section-5.5-11" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="exporters-generic">
@@ -2229,7 +2239,7 @@ operation, applied once.<a href="#section-5.7-3" class="pilcrow">¶</a></p>
 <p id="section-5.7-4">Keying the confirmation on ClientHelloInner.random alone matches
 <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>, whose confirmation key is HKDF-Extract(0,
 ClientHelloInner.random), with no handshake secret mixed in.  This
-document seeds a deck with ClientHelloInner.random itself and takes one
+document seeds a dec engine with ClientHelloInner.random itself and takes one
 Derive, in place of the extract-then-expand of <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span>.  Computing
 the confirmation requires ClientHelloInner.random, which only the client
 and a server that holds ClientHelloInner know.  Each confirmation's
@@ -2298,7 +2308,7 @@ context, with target_kdf as the KDF.  This follows the shape of the
 derivation in <span>[<a href="#RFC9258" class="cite xref">RFC9258</a>]</span>, with the entire serialized ImportedIdentity
 reduced by the transcript hash as the context.  ipsk is an explicit
 octet string by design:  it crosses a system boundary into the PSK
-store.  epsk is absorbed as the secret of a deck derivation
+store.  epsk is absorbed as the secret of a dec engine-based derivation
 (<a href="#expand-op" class="auto internal xref">Section 5.1</a>) in both profiles, so a low-entropy or
 attacker-influenced epsk never keys either profile's underlying
 permutation directly.<a href="#section-5.8-1" class="pilcrow">¶</a></p>
@@ -2405,13 +2415,13 @@ suite's hash governs its schedule exactly as TLS 1.3 specifies.<a href="#section
 </div>
 </section>
 </div>
-<div id="deck-schedule">
+<div id="dec-schedule">
 <section id="section-7">
-      <h2 id="name-the-deck-schedule">
-<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-the-deck-schedule" class="section-name selfRef">The Deck Schedule</a>
+      <h2 id="name-the-dec-engine-based-key-sc">
+<a href="#section-7" class="section-number selfRef">7. </a><a href="#name-the-dec-engine-based-key-sc" class="section-name selfRef">The Dec Engine-Based Key Schedule</a>
       </h2>
-<p id="section-7-1">Both KDFs of this document express the key schedule as a deck function
-(<a href="#deck-functions" class="auto internal xref">Section 1.3</a>).<a href="#section-7-1" class="pilcrow">¶</a></p>
+<p id="section-7-1">Both KDFs of this document express the key schedule as a dec engine
+(<a href="#dec-functions" class="auto internal xref">Section 1.3</a>).<a href="#section-7-1" class="pilcrow">¶</a></p>
 <p id="section-7-2">The schedule's normative interface is defined here, in terms of the
 profile's XOF and nothing else:  Init and Absorb build a framed input
 sequence, Derive reads one to produce a keyed output, DeriveN reads one
@@ -2425,20 +2435,20 @@ domain-separation constants.<a href="#section-7-2" class="pilcrow">¶</a></p>
         <dt id="section-7-4.1">schedule_label:</dt>
         <dd style="margin-left: 1.5em" id="section-7-4.2">
           <p id="section-7-4.2.1">The fixed 6-octet ASCII string "tls13 " (with a trailing space),
-framed at Init (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>) into every derivation of both
+framed at Init (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>) into every derivation of both
 profiles, or "dtls13" on a DTLS 1.3 connection (<a href="#dtls" class="auto internal xref">Section 14.1</a>).  It marks
-the deck schedule and is identical for both profiles, which are
+the dec engine-based key schedule and is identical for both profiles, which are
 separated by their XOF, not by this label.  It is byte-identical to
 the label prefix of HKDF-Expand-Label, "tls13 " in <span><a href="https://rfc-editor.org/rfc/rfc9846#section-7.1" class="relref">Section 7.1</a> of [<a href="#RFC9846" class="cite xref">RFC9846</a>]</span> and "dtls13" in <span><a href="https://rfc-editor.org/rfc/rfc9147#section-5.9" class="relref">Section 5.9</a> of [<a href="#RFC9147" class="cite xref">RFC9147</a>]</span>.  Its byte-level
 separation from other uses of the same XOF, including the transcript
 hash, is covered in <a href="#domain-separation" class="auto internal xref">Section 16.8</a>.<a href="#section-7-4.2.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
-<dt id="section-7-4.3">deck function:</dt>
+<dt id="section-7-4.3">dec engine:</dt>
         <dd style="margin-left: 1.5em" id="section-7-4.4">
-          <p id="section-7-4.4.1">An extendable-output function evaluated over a sequence of framed
-input strings, with the output length bound into the sequence before
-any output is produced (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>).  The construction beneath
+          <p id="section-7-4.4.1">A doubly-extendable cryptographic (dec) stateful object, whose input is a sequence of strings, and whose output is a hash of that input.
+In the scope of this document, it is implemented as an extendable-output function evaluated over a sequence of framed input strings, with the output length bound into the sequence before any output is produced (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>).
+The construction beneath
 it is an XOF and takes no key parameter, its secrets being ordinary
 framed inputs.  Related keyed-sponge results are discussed in
 <a href="#related-constructions" class="auto internal xref">Section 16.9</a>.<a href="#section-7-4.4.1" class="pilcrow">¶</a></p>
@@ -2448,38 +2458,38 @@ framed inputs.  Related keyed-sponge results are discussed in
         <dd style="margin-left: 1.5em" id="section-7-4.6">
           <p id="section-7-4.6.1">One of the three phases of the schedule:  early (keyed by the PSK),
 handshake (adds the key-exchange secrets), and application.  Stages
-are separated by ratchets (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>).  A key update is a
+are separated by ratchets (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>).  A key update is a
 derivation of the retained traffic secret (<a href="#key-update-generic" class="auto internal xref">Section 5.4</a>),
 not a ratchet.<a href="#section-7-4.6.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-7-4.7">ratchet:</dt>
         <dd style="margin-left: 1.5em" id="section-7-4.8">
-          <p id="section-7-4.8.1">Replacing a stage's deck with a fresh deck seeded by a residue
-squeezed from it under "drv", then destroying the old deck
+          <p id="section-7-4.8.1">Replacing a stage's dec accumulator with a fresh one, seeded by a residue
+squeezed from it under "drv", then destroying the old dec accumulator
 (<a href="#erasure-boundaries" class="auto internal xref">Section 16.7</a>).  <a href="#key-schedule" class="auto internal xref">Section 7.4</a> gives the call that
 produces each residue.<a href="#section-7-4.8.1" class="pilcrow">¶</a></p>
 </dd>
       <dd class="break"></dd>
 </dl>
 <p id="section-7-5">The presentation is stateful, but the construction is not.  Each Derive
-or DeriveN equals one invocation of a profile's deck function over its
+or DeriveN equals one invocation of a profile's XOF over its
 framed input sequence.  The three stages of <a href="#key-schedule" class="auto internal xref">Section 7.4</a> are
 protocol phases separated by stage boundaries, not KDF steps:  shared
 trunks absorb each input once, the two squeezed residues connect the
 stages, and the one-way truncations fall at the stage boundaries where
 TLS must erase prior state.  Their one-wayness is conditional
 (<a href="#erasure-boundaries" class="auto internal xref">Section 16.7</a>).<a href="#section-7-5" class="pilcrow">¶</a></p>
-<div id="deck-interface">
+<div id="dec-interface">
 <section id="section-7.1">
-        <h3 id="name-the-deck-schedule-interface">
-<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-the-deck-schedule-interface" class="section-name selfRef">The Deck Schedule Interface</a>
+        <h3 id="name-the-dec-engine-interface">
+<a href="#section-7.1" class="section-number selfRef">7.1. </a><a href="#name-the-dec-engine-interface" class="section-name selfRef">The Dec Engine Interface</a>
         </h3>
-<p id="section-7.1-1">A deck is a running sequence of framed inputs.  The profile's DF(S, L)
+<p id="section-7.1-1">A dec engine accumulates a running sequence of framed inputs.  The profile's DF(S, L)
 is the XOF over that sequence (<a href="#turboshake-instantiation" class="auto internal xref">Section 8.1</a>,
 <a href="#shake-instantiation" class="auto internal xref">Section 9.1</a>).  It returns L octets, and L is from 1 to
 65535, since TurboSHAKE256 is defined only for a positive output length
-(<span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>).  The schedule runs one deck per stage, driven by five
+(<span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>).  The schedule runs one dec engine per stage, driven by five
 operations.<a href="#section-7.1-1" class="pilcrow">¶</a></p>
 <div id="operations">
 <section id="section-7.1.1">
@@ -2516,39 +2526,39 @@ Derive(D, label,     out = DF(D [ || frame(ctag) || frame(context) ]
 Ratchet(D)           residue = Derive(D, "drv")
                      return Init(residue)
                      # analogue of Derive-Secret(., "derived", "")
-                     # the next deck is Init, seeded with the residue
+                     # the next dec engine is seeded with the residue
 </pre><a href="#section-7.1.1-1" class="pilcrow">¶</a>
 </div>
 <p id="section-7.1.1-2">Each descriptor is framed in the listed order.  Each o_i is the next L_i
 octets of the squeezed string.  The output tuple and descriptor list use
 the notation of <a href="#expand-op" class="auto internal xref">Section 5.1</a>, with the optional context last.<a href="#section-7.1.1-2" class="pilcrow">¶</a></p>
-<p id="section-7.1.1-3">Init starts a deck by framing schedule_label.  Every deck is Init'd, so
+<p id="section-7.1.1-3">Init starts a dec engine with framing schedule_label.  Every dec engine is Init'd, so
 every keyed sequence opens with frame(schedule_label), the label prefix
 of TLS 1.3 or DTLS 1.3 (<a href="#domain-separation" class="auto internal xref">Section 16.8</a>).  A ratchet residue or a
 retained secret is passed to Init as the seed and framed under the tag
 "seed" (<a href="#key-schedule" class="auto internal xref">Section 7.4</a>, <a href="#expand-op" class="auto internal xref">Section 5.1</a>).  Absorb feeds one tagged input
-into the running deck.  That is the same role HKDF-Extract's mixing step
+into the running dec engine.  That is the same role HKDF-Extract's mixing step
 plays in TLS 1.3.<a href="#section-7.1.1-3" class="pilcrow">¶</a></p>
 <p id="section-7.1.1-4">"outs" is a fixed DeriveN terminal marker alongside "out_".<a href="#section-7.1.1-4" class="pilcrow">¶</a></p>
-<p id="section-7.1.1-5">Derive is the single-output operation.  It clones the running deck,
-absorbs that leaf's context, then adds the leaf label.  The deck being
+<p id="section-7.1.1-5">Derive is the single-output operation.  It clones the running dec accumulator,
+absorbs that leaf's context, then adds the leaf label.  The dec accumulator being
 derived from fixes ctag:  a live stage trunk takes "th__", whose context
-is a transcript checkpoint, and a deck seeded from a retained secret
+is a transcript checkpoint, and a dec engine seeded from a retained secret
 takes "ctx_", whose context is that derivation's expansion context.  A
 Derive with no context frames neither.  The context precedes the label
 here, the reverse of TLS 1.3's HkdfLabel order.  The framing is
 injective either way, and placing the context first lets sibling leaves
 that share it branch after one absorption.<a href="#section-7.1.1-5" class="pilcrow">¶</a></p>
-<p id="section-7.1.1-6">The clone leaves the deck unchanged, so one deck yields all of a stage's
+<p id="section-7.1.1-6">The clone leaves the dec engine unchanged, so one dec accumulator yields all of a stage's
 leaves.  Derive fills exactly HKDF-Expand-Label's role.  At a stage leaf
 it stands in for TLS 1.3's Derive-Secret(secret, label, Messages), with
-the deck in place of the secret.  A value keyed by a retained secret is
-a Derive or DeriveN over a deck seeded with that secret (<a href="#expand-op" class="auto internal xref">Section 5.1</a>).
+the dec accumulator in place of the secret.  A value keyed by a retained secret is
+a Derive or DeriveN over a dec engine seeded with that secret (<a href="#expand-op" class="auto internal xref">Section 5.1</a>).
 A Derive that omits L, including the Ratchet residue, outputs SecretLen
 octets.  A Derive that fixes its own length passes L explicitly (the
 early key_block, sn_key, exporters, the ECH confirmation, MAC).  When
 the context is omitted, L is the third argument.<a href="#section-7.1.1-6" class="pilcrow">¶</a></p>
-<p id="section-7.1.1-7">DeriveN also clones the deck without consuming it, and uses the same
+<p id="section-7.1.1-7">DeriveN also clones the dec accumulator without consuming it, and uses the same
 context rules.  Every DeriveN label MUST be registered, and labels
 within a descriptor list MUST be distinct.  DeriveN MUST reject k
 outside 2..65535, any L_i outside 1..65535, or a sum above 65535.
@@ -2559,18 +2569,18 @@ only that total would not bind the partition.<a href="#section-7.1.1-7" class="p
 <p id="section-7.1.1-8">DeriveN is restricted to the fixed derivations of this document.  A
 caller MUST NOT omit, reorder, append, or resize descriptors according
 to which outputs it currently needs.  Each derivation fixes the context
-and parent deck as well as the descriptors.  Other protocols use Derive
+and parent dec accumulator as well as the descriptors.  Other protocols use Derive
 under <a href="#companion-mechanisms" class="auto internal xref">Section 14</a>.<a href="#section-7.1.1-8" class="pilcrow">¶</a></p>
 <p id="section-7.1.1-9">Ratchet crosses a stage boundary.  Its residue is a Derive under the
 label "drv", which is this schedule's analogue of TLS 1.3's
-Derive-Secret(., "derived", "") between stages.  The next deck is Init'd
+Derive-Secret(., "derived", "") between stages.  The next dec engine is Init'd
 like any other, framing schedule_label, then seeded with that residue,
-so "drv" names the residue, not the new deck.  The residue is internal
+so "drv" names the residue, not the new dec accumulator.  The residue is internal
 and never leaves the schedule.  Any stage input, such as the asymmetric
-shared secret, is a later Absorb into the new deck, not part of the
+shared secret, is a later Absorb into the new dec engine, not part of the
 ratchet.<a href="#section-7.1.1-9" class="pilcrow">¶</a></p>
 <p id="section-7.1.1-10"><a href="#key-schedule" class="auto internal xref">Section 7.4</a> says which boundaries use Ratchet.<a href="#section-7.1.1-10" class="pilcrow">¶</a></p>
-<p id="section-7.1.1-11">The old deck is retired:  nothing absorbs into it or derives from it
+<p id="section-7.1.1-11">The old dec engine is retired:  nothing absorbs into it or derives from it
 afterward.  This is not the in-place Ratchet() of Cyclist or STROBE
 (<span>[<a href="#XOODYAK" class="cite xref">XOODYAK</a>]</span>, <span>[<a href="#STROBE" class="cite xref">STROBE</a>]</span>), which returns nothing.<a href="#section-7.1.1-11" class="pilcrow">¶</a></p>
 <p id="section-7.1.1-12">A Derive is one DF call over its framed path, and a ratchet residue is
@@ -2588,7 +2598,7 @@ one such Derive.  It is therefore byte-exact and testable alone.<a href="#sectio
 frame(schedule_label) fills 8 octets and every framed tag, together with
 the two-octet length of the value it names, fills 8 more.  A value
 framed under a tag therefore starts on an 8-octet boundary whenever
-every value before it in the deck input is a multiple of 8 octets long,
+every value before it in the dec engine's input is a multiple of 8 octets long,
 which lets an implementation that absorbs 64-bit lanes take key material
 without realigning it.  With the 64-octet secrets and transcript hashes
 of this document, that holds for the PSK and every seed, at offset 16,
@@ -2851,7 +2861,7 @@ Absorb.<a href="#section-7.3-2.2.1" class="pilcrow">¶</a></p>
 or with a PSK as the "drv" output derived alongside binder_key.<a href="#section-7.3-2.3.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-7.3-2.4">
-            <p id="section-7.3-2.4.1">Deck derive: traffic and exporter secrets, PSK binder keys, as Derive
+            <p id="section-7.3-2.4.1">Dec derive: traffic and exporter secrets, PSK binder keys, as Derive
 or DeriveN.<a href="#section-7.3-2.4.1" class="pilcrow">¶</a></p>
 </li>
           <li id="section-7.3-2.5">
@@ -2867,7 +2877,7 @@ Authenticator's Finished, as MAC.<a href="#section-7.3-2.6.1" class="pilcrow">¶
         </ol>
 <p id="section-7.3-3">Shapes 1 through 3 act on the trunk of a stage.  Shapes 4 and 5 are the
 output operations, Derive and DeriveN, over a live trunk or over a
-seeded deck rooted at a retained secret (<a href="#expand-op" class="auto internal xref">Section 5.1</a>).  Shape 6 is
+seeded dec engine rooted at a retained secret (<a href="#expand-op" class="auto internal xref">Section 5.1</a>).  Shape 6 is
 shape 5 under the label "mac", with the message as context (<a href="#mac-op" class="auto internal xref">Section 5.2</a>).
 Record keys are derived from their traffic secret by a separate call, as
 in TLS 1.3, so a retained traffic secret suffices to re-derive its keys.
@@ -2889,7 +2899,7 @@ replace.  No leaf derivation binds one directly either.  A client
 offering several cipher suites under one KDF computes one schedule.
 Only record-key derivations depend directly on the suite, through Nk and
 Nn (<a href="#record-keys-generic" class="auto internal xref">Section 5.3</a>).  Every derivation frames schedule_label at
-Init (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>).  The negotiated KDF is bound by the XOF, not
+Init (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>).  The negotiated KDF is bound by the XOF, not
 by this label.  This listing is identical for both profiles.  Only each
 profile's DF instantiation differs (<a href="#turboshake-profile" class="auto internal xref">Section 8</a>,
 <a href="#shake-profile" class="auto internal xref">Section 9</a>).<a href="#section-7.4-1" class="pilcrow">¶</a></p>
@@ -2898,7 +2908,7 @@ profile's DF instantiation differs (<a href="#turboshake-profile" class="auto in
 E = Init()
 Absorb(E, "psk_", PSK)             # "" when no PSK is selected
 
-# early-stage leaves, each a clone of the early deck E
+# early-stage leaves, each a clone of the early dec accumulator E
 (binder_key, early_residue) =                  # with a PSK
     DeriveN(E, [(binder_label, SecretLen),
                 ("drv",        SecretLen)])
@@ -2927,7 +2937,7 @@ resumption_secret = Derive(T, "rss", TH_CF)
 </pre><a href="#section-7.4-2" class="pilcrow">¶</a>
 </div>
 <p id="section-7.4-3">With a PSK, early_residue is the "drv" output of the DeriveN on E that
-also derives binder_key, and both peers MUST seed the handshake deck
+also derives binder_key, and both peers MUST seed the handshake dec engine
 with it rather than with a residue of Ratchet(E), which would differ.
 Without a PSK, both early DeriveN calls are omitted and H = Ratchet(E).
 The handshake boundary always uses Ratchet(H).  The DeriveN that derives
@@ -2961,7 +2971,7 @@ frame("")     = 0x0000
 <p id="section-7.4.1-3">This is unambiguous because a PSK of this document is never zero-length:
 an imported or resumption PSK is 64 octets (<a href="#psk-importer" class="auto internal xref">Section 10</a>), and an
 endpoint MUST NOT use an empty raw external PSK.  Without a PSK, the
-early stage carries no leaves and its deck holds only known constants,
+early stage carries no leaves and its dec accumulator holds only known constants,
 as TLS 1.3's Early Secret is the extract of two known constants.  The
 stage exists for uniformity across handshake modes, and the schedule's
 security does not rest on its secrecy when no PSK is present.  A
@@ -2974,14 +2984,14 @@ PSK-only handshake omits Absorb(H, "shs_", ...) entirely:  the tag
           <h4 id="name-stage-secrets">
 <a href="#section-7.4.2" class="section-number selfRef">7.4.2. </a><a href="#name-stage-secrets" class="section-name selfRef">Stage Secrets</a>
           </h4>
-<p id="section-7.4.2-1">The three stage decks E, H, and T are this schedule's analogue of TLS
+<p id="section-7.4.2-1">The three stage dec accumulator E, H, and T are this schedule's analogue of TLS
 1.3's Early, Handshake, and Main Secret.  They are states, not values.
-A leaf clones the running deck rather than reading an extracted octet
+A leaf clones the running dec engine rather than reading an extracted octet
 string, so no named early or main secret is materialized.<a href="#section-7.4.2-1" class="pilcrow">¶</a></p>
-<p id="section-7.4.2-2">Each stage boundary seeds the next deck with a residue under "drv"
-(<a href="#key-schedule" class="auto internal xref">Section 7.4</a>), and that deck frames schedule_label at Init.  That
+<p id="section-7.4.2-2">Each stage boundary seeds the next dec engine with a residue under "drv"
+(<a href="#key-schedule" class="auto internal xref">Section 7.4</a>), and that dec engine frames schedule_label at Init.  That
 residue is the analogue of TLS 1.3's unnamed "derived" salt.  It never
-leaves the schedule.  It seeds the next deck once and is then discarded
+leaves the schedule.  It seeds the next dec engine once and is then discarded
 (<a href="#erasure-boundaries" class="auto internal xref">Section 16.7</a>).<a href="#section-7.4.2-2" class="pilcrow">¶</a></p>
 <p id="section-7.4.2-3">The values that do leave, the traffic and exporter secrets, occupy
 disjoint slices within a DeriveN output tuple.  The DeriveN calls that
@@ -2989,7 +2999,7 @@ derive early, handshake, and application traffic and exporter secrets
 each bind their ordered labels, lengths, and transcript checkpoint
 (<a href="#domain-separation" class="auto internal xref">Section 16.8</a>).  Early data is separated in addition by the
 0-RTT equality check (<a href="#governing-profile" class="auto internal xref">Section 4</a>).  Every stage binds its
-transcript at the leaves, so the decks themselves bind none.  The
+transcript at the leaves, so the dec engines themselves bind none.  The
 derivation graph maps onto the TLS 1.3 graph (<a href="#derivation-graph" class="auto internal xref">Section 16.6.3</a>).<a href="#section-7.4.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
@@ -3002,8 +3012,8 @@ derivation graph maps onto the TLS 1.3 graph (<a href="#derivation-graph" class=
       <h2 id="name-the-tls13_turboshake256-pro">
 <a href="#section-8" class="section-number selfRef">8. </a><a href="#name-the-tls13_turboshake256-pro" class="section-name selfRef">The TLS13_TURBOSHAKE256 Profile</a>
       </h2>
-<p id="section-8-1">The TLS13_TURBOSHAKE256 profile instantiates the deck schedule of
-<a href="#deck-schedule" class="auto internal xref">Section 7</a> with TurboSHAKE256 <span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, built on the 12-round
+<p id="section-8-1">The TLS13_TURBOSHAKE256 profile instantiates the dec engine-based key schedule of
+<a href="#dec-schedule" class="auto internal xref">Section 7</a> with TurboSHAKE256 <span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, built on the 12-round
 Keccak-p[1600,12] permutation of <span>[<a href="#FIPS202" class="cite xref">FIPS202</a>]</span>.<a href="#section-8-1" class="pilcrow">¶</a></p>
 <p id="section-8-2">The profile parameters are:<a href="#section-8-2" class="pilcrow">¶</a></p>
 <span class="break"></span><dl class="dlParallel" id="section-8-3">
@@ -3023,7 +3033,7 @@ Keccak-p[1600,12] permutation of <span>[<a href="#FIPS202" class="cite xref">FIP
         <h3 id="name-instantiation">
 <a href="#section-8.1" class="section-number selfRef">8.1. </a><a href="#name-instantiation" class="section-name selfRef">Instantiation</a>
         </h3>
-<p id="section-8.1-1">The deck function is:<a href="#section-8.1-1" class="pilcrow">¶</a></p>
+<p id="section-8.1-1">The dec engine is implemented using TurboSHAKE256 as XOF:<a href="#section-8.1-1" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-8.1-2">
 <pre>
 DF(S, L) = TurboSHAKE256(seq(S), 0x1F, L)
@@ -3069,14 +3079,14 @@ same one TLS stacks already apply to SHA-2 transcript-hash checkpoints.<a href="
       <h2 id="name-the-tls13_shake256-profile">
 <a href="#section-9" class="section-number selfRef">9. </a><a href="#name-the-tls13_shake256-profile" class="section-name selfRef">The TLS13_SHAKE256 Profile</a>
       </h2>
-<p id="section-9-1">The TLS13_SHAKE256 profile instantiates the deck schedule of
-<a href="#deck-schedule" class="auto internal xref">Section 7</a> with plain SHAKE256 <span>[<a href="#FIPS202" class="cite xref">FIPS202</a>]</span>, built on the 24-round
+<p id="section-9-1">The TLS13_SHAKE256 profile instantiates the dec engine-based key schedule of
+<a href="#dec-schedule" class="auto internal xref">Section 7</a> with plain SHAKE256 <span>[<a href="#FIPS202" class="cite xref">FIPS202</a>]</span>, built on the 24-round
 Keccak-f[1600] permutation, in place of TurboSHAKE256's
 Keccak-p[1600,12].  This profile mirrors the TLS13_TURBOSHAKE256
 profile's framing exactly:  domain separation comes from the same
 framed-prefix mechanism the TurboSHAKE profile uses, an absorbed
-frame(schedule_label) at Init (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>), not from cSHAKE's
-function-name and customization-string inputs.  The two profiles' decks
+frame(schedule_label) at Init (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>), not from cSHAKE's
+function-name and customization-string inputs.  The two profiles' dec engines
 therefore differ only in the underlying permutation, so derivation
 (<a href="#expand-op" class="auto internal xref">Section 5.1</a>) and the MAC construction (<a href="#mac-op" class="auto internal xref">Section 5.2</a>) are shared by both
 profiles.<a href="#section-9-1" class="pilcrow">¶</a></p>
@@ -3087,7 +3097,7 @@ profiles.<a href="#section-9-1" class="pilcrow">¶</a></p>
         <h3 id="name-instantiation-2">
 <a href="#section-9.1" class="section-number selfRef">9.1. </a><a href="#name-instantiation-2" class="section-name selfRef">Instantiation</a>
         </h3>
-<p id="section-9.1-1">The deck function is:<a href="#section-9.1-1" class="pilcrow">¶</a></p>
+<p id="section-9.1-1">The dec engine is implemented using SHAKE256 as XOF:<a href="#section-9.1-1" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-9.1-2">
 <pre>
 DF(S, L) = SHAKE256(seq(S), 8 * L)
@@ -3100,7 +3110,7 @@ octet-oriented L to the bit-oriented L argument of SHAKE256.<a href="#section-9.
 <p id="section-9.1-4">SHAKE256 takes no function-name or customization-string input.  This
 profile's domain separation comes from seq(S) beginning with
 frame(schedule_label), as <a href="#shake-profile" class="auto internal xref">Section 9</a> describes
-(<a href="#deck-interface" class="auto internal xref">Section 7.1</a>).<a href="#section-9.1-4" class="pilcrow">¶</a></p>
+(<a href="#dec-interface" class="auto internal xref">Section 7.1</a>).<a href="#section-9.1-4" class="pilcrow">¶</a></p>
 <p id="section-9.1-5">The transcript hash of <a href="#transcript-hash" class="auto internal xref">Section 2.1</a> is instantiated with the same
 function: TranscriptHash(x) = SHAKE256("tls13 hash" || x, 512).<a href="#section-9.1-5" class="pilcrow">¶</a></p>
 <p id="section-9.1-6">SHAKE256 uses the Keccak-f[1600] permutation as a sponge with the same
@@ -3303,7 +3313,7 @@ and a KDF of this document applies both.  This document updates
 connection that negotiates no KDF uses <span>[<a href="#RFC9147" class="cite xref">RFC9147</a>]</span> unchanged.<a href="#section-14.1-1" class="pilcrow">¶</a></p>
 <p id="section-14.1-2">First, <span><a href="https://rfc-editor.org/rfc/rfc9147#section-5.9" class="relref">Section 5.9</a> of [<a href="#RFC9147" class="cite xref">RFC9147</a>]</span> replaces the "tls13 " label prefix
 with "dtls13" to separate DTLS 1.3 keys from TLS 1.3 keys.
-schedule_label is that prefix (<a href="#deck-schedule" class="auto internal xref">Section 7</a>), so a DTLS 1.3
+schedule_label is that prefix (<a href="#dec-schedule" class="auto internal xref">Section 7</a>), so a DTLS 1.3
 connection frames "dtls13" at every Init:<a href="#section-14.1-2" class="pilcrow">¶</a></p>
 <div class="alignLeft art-text artwork" id="section-14.1-3">
 <pre>
@@ -3895,7 +3905,7 @@ unproved (<span>[<a href="#RSS" class="cite xref">RSS</a>]</span>, <a href="#cry
 <p id="section-16.6.4-3"><span>[<a href="#TLS13KS" class="cite xref">TLS13KS</a>]</span> is proved over discrete extract-and-expand nodes, not over
 an accumulator carried across each stage and cloned at its leaves.  The
 cross-stage chaining needs analysis, in particular absorbing the
-asymmetric shared secret into a deck seeded with the early residue, the
+asymmetric shared secret into a dec engine seeded with the early residue, the
 step TLS 1.3 performs as an HKDF-Extract salted with the early secret's
 "derived" value.<a href="#section-16.6.4-3" class="pilcrow">¶</a></p>
 <p id="section-16.6.4-4">For DeriveN, that analysis must also cover joint outputs, selective
@@ -3966,18 +3976,18 @@ effort (<a href="#implementation-considerations" class="auto internal xref">Appe
         <h3 id="name-domain-separation">
 <a href="#section-16.8" class="section-number selfRef">16.8. </a><a href="#name-domain-separation" class="section-name selfRef">Domain Separation</a>
         </h3>
-<p id="section-16.8-1">Distinct derivation paths yield distinct byte strings as deck-function
+<p id="section-16.8-1">Distinct derivation paths yield distinct byte strings as dec engine
 inputs.  A framed sequence decodes to exactly one list of items:
 frame(x) is uint16(len(x)) || x with no padding (<a href="#conventions" class="auto internal xref">Section 2</a>).<a href="#section-16.8-1" class="pilcrow">¶</a></p>
-<p id="section-16.8-2">Every deck opens with frame(schedule_label), then its rooting item
-(<a href="#deck-interface" class="auto internal xref">Section 7.1</a>, <a href="#expand-op" class="auto internal xref">Section 5.1</a>):  the PSK for the early stage, the
+<p id="section-16.8-2">Every dec engine opens with frame(schedule_label), then its rooting item
+(<a href="#dec-interface" class="auto internal xref">Section 7.1</a>, <a href="#expand-op" class="auto internal xref">Section 5.1</a>):  the PSK for the early stage, the
 early residue for the handshake stage, the handshake residue for the
 application stage, and the retained secret for a derivation
 (<a href="#key-schedule" class="auto internal xref">Section 7.4</a>).  The PSK is framed under the tag "psk_" and every
 residue or retained secret under "seed", so the early trunk differs from
-every other deck in its first tag.  Decks that open with the same tag
+every other dec accumulator in its first tag.  Decaccumulator that open with the same tag
 are told apart by their seed value and not by their structure.  A path
-over a live stage trunk and a path over a deck seeded with a retained
+over a live stage trunk and a path over a dec engine seeded with a retained
 secret draw from disjoint label vocabularies (<a href="#key-schedule" class="auto internal xref">Section 7.4</a>,
 <a href="#labels" class="auto internal xref">Section 7.2</a>).  Within either, every item before the terminal label or the
 "outs" marker is a framed tag drawn from this document's fixed
@@ -4187,112 +4197,112 @@ supports the same 256-bit target with a larger round margin
 <a href="#appendix-A" class="section-number selfRef">Appendix A. </a><a href="#name-comparison-with-tls-13" class="section-name selfRef">Comparison with TLS 1.3</a>
       </h2>
 <p id="appendix-A-1">This appendix is non-normative.  It compares the TLS 1.3 schedule with
-the deck schedule of <a href="#deck-schedule" class="auto internal xref">Section 7</a>.  Both profiles share this
+the dec engine-based key schedule of <a href="#dec-schedule" class="auto internal xref">Section 7</a>.  Both profiles share this
 schedule and differ only in the underlying permutation, so the
 comparison applies equally to TLS13_TURBOSHAKE256 and TLS13_SHAKE256,
-and the figure labels the deck side generically.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
+and the figure labels the dec engine side generically.<a href="#appendix-A-1" class="pilcrow">¶</a></p>
 <span id="name-tls-13-with-imported-psks-a"></span><div id="comparison-figure">
 <figure id="figure-2">
         <div id="appendix-A-2.1">
           <div class="alignLeft art-svg artwork" id="appendix-A-2.1.1">
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="832" width="576" viewBox="0 0 576 832" class="diagram" text-anchor="middle" font-family="monospace" font-size="13px" stroke-linecap="round">
-              <path d="M 8,144 L 8,176" fill="none" stroke="black"></path>
-              <path d="M 8,432 L 8,464" fill="none" stroke="black"></path>
-              <path d="M 8,640 L 8,672" fill="none" stroke="black"></path>
-              <path d="M 80,112 L 80,136" fill="none" stroke="black"></path>
-              <path d="M 80,184 L 80,352" fill="none" stroke="black"></path>
-              <path d="M 80,400 L 80,424" fill="none" stroke="black"></path>
-              <path d="M 80,472 L 80,576" fill="none" stroke="black"></path>
-              <path d="M 80,608 L 80,632" fill="none" stroke="black"></path>
-              <path d="M 80,680 L 80,816" fill="none" stroke="black"></path>
-              <path d="M 152,144 L 152,176" fill="none" stroke="black"></path>
-              <path d="M 152,432 L 152,464" fill="none" stroke="black"></path>
-              <path d="M 152,640 L 152,672" fill="none" stroke="black"></path>
-              <path d="M 272,144 L 272,176" fill="none" stroke="black"></path>
-              <path d="M 272,432 L 272,464" fill="none" stroke="black"></path>
-              <path d="M 272,640 L 272,672" fill="none" stroke="black"></path>
-              <path d="M 344,88 L 344,128" fill="none" stroke="black"></path>
-              <path d="M 344,192 L 344,360" fill="none" stroke="black"></path>
-              <path d="M 344,376 L 344,416" fill="none" stroke="black"></path>
-              <path d="M 344,480 L 344,584" fill="none" stroke="black"></path>
-              <path d="M 344,600 L 344,624" fill="none" stroke="black"></path>
-              <path d="M 344,688 L 344,816" fill="none" stroke="black"></path>
-              <path d="M 416,144 L 416,184" fill="none" stroke="black"></path>
-              <path d="M 416,272 L 416,280" fill="none" stroke="black"></path>
-              <path d="M 416,432 L 416,472" fill="none" stroke="black"></path>
-              <path d="M 416,640 L 416,680" fill="none" stroke="black"></path>
-              <path d="M 16,46 L 176,46" fill="none" stroke="black"></path>
-              <path d="M 16,50 L 176,50" fill="none" stroke="black"></path>
-              <path d="M 280,46 L 528,46" fill="none" stroke="black"></path>
-              <path d="M 280,50 L 528,50" fill="none" stroke="black"></path>
-              <path d="M 8,144 L 152,144" fill="none" stroke="black"></path>
-              <path d="M 272,142 L 416,142" fill="none" stroke="black"></path>
-              <path d="M 272,146 L 416,146" fill="none" stroke="black"></path>
-              <path d="M 8,176 L 152,176" fill="none" stroke="black"></path>
-              <path d="M 272,174 L 416,174" fill="none" stroke="black"></path>
-              <path d="M 272,178 L 416,178" fill="none" stroke="black"></path>
-              <path d="M 80,208 L 96,208" fill="none" stroke="black"></path>
-              <path d="M 344,224 L 360,224" fill="none" stroke="black"></path>
-              <path d="M 80,240 L 96,240" fill="none" stroke="black"></path>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="848" width="576" viewBox="0 0 576 848" class="diagram" text-anchor="middle" font-family="monospace" font-size="13px" stroke-linecap="round">
+              <path d="M 8,160 L 8,192" fill="none" stroke="black"></path>
+              <path d="M 8,448 L 8,480" fill="none" stroke="black"></path>
+              <path d="M 8,656 L 8,688" fill="none" stroke="black"></path>
+              <path d="M 80,128 L 80,152" fill="none" stroke="black"></path>
+              <path d="M 80,200 L 80,368" fill="none" stroke="black"></path>
+              <path d="M 80,416 L 80,440" fill="none" stroke="black"></path>
+              <path d="M 80,488 L 80,592" fill="none" stroke="black"></path>
+              <path d="M 80,624 L 80,648" fill="none" stroke="black"></path>
+              <path d="M 80,696 L 80,832" fill="none" stroke="black"></path>
+              <path d="M 152,160 L 152,192" fill="none" stroke="black"></path>
+              <path d="M 152,448 L 152,480" fill="none" stroke="black"></path>
+              <path d="M 152,656 L 152,688" fill="none" stroke="black"></path>
+              <path d="M 272,160 L 272,192" fill="none" stroke="black"></path>
+              <path d="M 272,448 L 272,480" fill="none" stroke="black"></path>
+              <path d="M 272,656 L 272,688" fill="none" stroke="black"></path>
+              <path d="M 344,104 L 344,144" fill="none" stroke="black"></path>
+              <path d="M 344,208 L 344,376" fill="none" stroke="black"></path>
+              <path d="M 344,392 L 344,432" fill="none" stroke="black"></path>
+              <path d="M 344,496 L 344,600" fill="none" stroke="black"></path>
+              <path d="M 344,616 L 344,640" fill="none" stroke="black"></path>
+              <path d="M 344,704 L 344,832" fill="none" stroke="black"></path>
+              <path d="M 416,160 L 416,200" fill="none" stroke="black"></path>
+              <path d="M 416,288 L 416,296" fill="none" stroke="black"></path>
+              <path d="M 416,448 L 416,488" fill="none" stroke="black"></path>
+              <path d="M 416,656 L 416,696" fill="none" stroke="black"></path>
+              <path d="M 16,62 L 176,62" fill="none" stroke="black"></path>
+              <path d="M 16,66 L 176,66" fill="none" stroke="black"></path>
+              <path d="M 280,62 L 536,62" fill="none" stroke="black"></path>
+              <path d="M 280,66 L 536,66" fill="none" stroke="black"></path>
+              <path d="M 8,160 L 152,160" fill="none" stroke="black"></path>
+              <path d="M 272,158 L 416,158" fill="none" stroke="black"></path>
+              <path d="M 272,162 L 416,162" fill="none" stroke="black"></path>
+              <path d="M 8,192 L 152,192" fill="none" stroke="black"></path>
+              <path d="M 272,190 L 416,190" fill="none" stroke="black"></path>
+              <path d="M 272,194 L 416,194" fill="none" stroke="black"></path>
+              <path d="M 80,224 L 96,224" fill="none" stroke="black"></path>
               <path d="M 344,240 L 360,240" fill="none" stroke="black"></path>
-              <path d="M 80,272 L 96,272" fill="none" stroke="black"></path>
-              <path d="M 344,320 L 360,320" fill="none" stroke="black"></path>
+              <path d="M 80,256 L 96,256" fill="none" stroke="black"></path>
+              <path d="M 344,256 L 360,256" fill="none" stroke="black"></path>
+              <path d="M 80,288 L 96,288" fill="none" stroke="black"></path>
               <path d="M 344,336 L 360,336" fill="none" stroke="black"></path>
-              <path d="M 8,432 L 152,432" fill="none" stroke="black"></path>
-              <path d="M 272,430 L 416,430" fill="none" stroke="black"></path>
-              <path d="M 272,434 L 416,434" fill="none" stroke="black"></path>
-              <path d="M 8,464 L 152,464" fill="none" stroke="black"></path>
-              <path d="M 272,462 L 416,462" fill="none" stroke="black"></path>
-              <path d="M 272,466 L 416,466" fill="none" stroke="black"></path>
-              <path d="M 80,496 L 96,496" fill="none" stroke="black"></path>
-              <path d="M 344,512 L 360,512" fill="none" stroke="black"></path>
-              <path d="M 80,528 L 96,528" fill="none" stroke="black"></path>
+              <path d="M 344,352 L 360,352" fill="none" stroke="black"></path>
+              <path d="M 8,448 L 152,448" fill="none" stroke="black"></path>
+              <path d="M 272,446 L 416,446" fill="none" stroke="black"></path>
+              <path d="M 272,450 L 416,450" fill="none" stroke="black"></path>
+              <path d="M 8,480 L 152,480" fill="none" stroke="black"></path>
+              <path d="M 272,478 L 416,478" fill="none" stroke="black"></path>
+              <path d="M 272,482 L 416,482" fill="none" stroke="black"></path>
+              <path d="M 80,512 L 96,512" fill="none" stroke="black"></path>
               <path d="M 344,528 L 360,528" fill="none" stroke="black"></path>
-              <path d="M 8,640 L 152,640" fill="none" stroke="black"></path>
-              <path d="M 272,638 L 416,638" fill="none" stroke="black"></path>
-              <path d="M 272,642 L 416,642" fill="none" stroke="black"></path>
-              <path d="M 8,672 L 152,672" fill="none" stroke="black"></path>
-              <path d="M 272,670 L 416,670" fill="none" stroke="black"></path>
-              <path d="M 272,674 L 416,674" fill="none" stroke="black"></path>
-              <path d="M 80,704 L 96,704" fill="none" stroke="black"></path>
-              <path d="M 344,720 L 360,720" fill="none" stroke="black"></path>
-              <path d="M 80,736 L 96,736" fill="none" stroke="black"></path>
+              <path d="M 80,544 L 96,544" fill="none" stroke="black"></path>
+              <path d="M 344,544 L 360,544" fill="none" stroke="black"></path>
+              <path d="M 8,656 L 152,656" fill="none" stroke="black"></path>
+              <path d="M 272,654 L 416,654" fill="none" stroke="black"></path>
+              <path d="M 272,658 L 416,658" fill="none" stroke="black"></path>
+              <path d="M 8,688 L 152,688" fill="none" stroke="black"></path>
+              <path d="M 272,686 L 416,686" fill="none" stroke="black"></path>
+              <path d="M 272,690 L 416,690" fill="none" stroke="black"></path>
+              <path d="M 80,720 L 96,720" fill="none" stroke="black"></path>
               <path d="M 344,736 L 360,736" fill="none" stroke="black"></path>
+              <path d="M 80,752 L 96,752" fill="none" stroke="black"></path>
               <path d="M 344,752 L 360,752" fill="none" stroke="black"></path>
-              <path d="M 80,768 L 96,768" fill="none" stroke="black"></path>
-              <path d="M 80,800 L 96,800" fill="none" stroke="black"></path>
-              <path d="M 344,800 L 360,800" fill="none" stroke="black"></path>
-              <polygon class="arrowhead" points="368,800 356,794.4 356,805.6" fill="black" transform="rotate(0,360,800)"></polygon>
+              <path d="M 344,768 L 360,768" fill="none" stroke="black"></path>
+              <path d="M 80,784 L 96,784" fill="none" stroke="black"></path>
+              <path d="M 80,816 L 96,816" fill="none" stroke="black"></path>
+              <path d="M 344,816 L 360,816" fill="none" stroke="black"></path>
+              <polygon class="arrowhead" points="368,816 356,810.4 356,821.6" fill="black" transform="rotate(0,360,816)"></polygon>
+              <polygon class="arrowhead" points="368,768 356,762.4 356,773.6" fill="black" transform="rotate(0,360,768)"></polygon>
               <polygon class="arrowhead" points="368,752 356,746.4 356,757.6" fill="black" transform="rotate(0,360,752)"></polygon>
               <polygon class="arrowhead" points="368,736 356,730.4 356,741.6" fill="black" transform="rotate(0,360,736)"></polygon>
-              <polygon class="arrowhead" points="368,720 356,714.4 356,725.6" fill="black" transform="rotate(0,360,720)"></polygon>
+              <polygon class="arrowhead" points="368,544 356,538.4 356,549.6" fill="black" transform="rotate(0,360,544)"></polygon>
               <polygon class="arrowhead" points="368,528 356,522.4 356,533.6" fill="black" transform="rotate(0,360,528)"></polygon>
-              <polygon class="arrowhead" points="368,512 356,506.4 356,517.6" fill="black" transform="rotate(0,360,512)"></polygon>
+              <polygon class="arrowhead" points="368,352 356,346.4 356,357.6" fill="black" transform="rotate(0,360,352)"></polygon>
               <polygon class="arrowhead" points="368,336 356,330.4 356,341.6" fill="black" transform="rotate(0,360,336)"></polygon>
-              <polygon class="arrowhead" points="368,320 356,314.4 356,325.6" fill="black" transform="rotate(0,360,320)"></polygon>
+              <polygon class="arrowhead" points="368,256 356,250.4 356,261.6" fill="black" transform="rotate(0,360,256)"></polygon>
               <polygon class="arrowhead" points="368,240 356,234.4 356,245.6" fill="black" transform="rotate(0,360,240)"></polygon>
-              <polygon class="arrowhead" points="368,224 356,218.4 356,229.6" fill="black" transform="rotate(0,360,224)"></polygon>
-              <polygon class="arrowhead" points="352,624 340,618.4 340,629.6" fill="black" transform="rotate(90,344,624)"></polygon>
-              <path class="jump" d="M 344,600 C 338,600 338,584 344,584" fill="none" stroke="black"></path>
-              <polygon class="arrowhead" points="352,584 340,578.4 340,589.6" fill="black" transform="rotate(90,344,584)"></polygon>
-              <polygon class="arrowhead" points="352,416 340,410.4 340,421.6" fill="black" transform="rotate(90,344,416)"></polygon>
-              <path class="jump" d="M 344,376 C 338,376 338,360 344,360" fill="none" stroke="black"></path>
-              <polygon class="arrowhead" points="352,360 340,354.4 340,365.6" fill="black" transform="rotate(90,344,360)"></polygon>
-              <polygon class="arrowhead" points="352,128 340,122.4 340,133.6" fill="black" transform="rotate(90,344,128)"></polygon>
-              <polygon class="arrowhead" points="104,800 92,794.4 92,805.6" fill="black" transform="rotate(0,96,800)"></polygon>
-              <polygon class="arrowhead" points="104,768 92,762.4 92,773.6" fill="black" transform="rotate(0,96,768)"></polygon>
-              <polygon class="arrowhead" points="104,736 92,730.4 92,741.6" fill="black" transform="rotate(0,96,736)"></polygon>
-              <polygon class="arrowhead" points="104,704 92,698.4 92,709.6" fill="black" transform="rotate(0,96,704)"></polygon>
-              <polygon class="arrowhead" points="104,528 92,522.4 92,533.6" fill="black" transform="rotate(0,96,528)"></polygon>
-              <polygon class="arrowhead" points="104,496 92,490.4 92,501.6" fill="black" transform="rotate(0,96,496)"></polygon>
-              <polygon class="arrowhead" points="104,272 92,266.4 92,277.6" fill="black" transform="rotate(0,96,272)"></polygon>
-              <polygon class="arrowhead" points="104,240 92,234.4 92,245.6" fill="black" transform="rotate(0,96,240)"></polygon>
-              <polygon class="arrowhead" points="104,208 92,202.4 92,213.6" fill="black" transform="rotate(0,96,208)"></polygon>
-              <polygon class="arrowhead" points="88,632 76,626.4 76,637.6" fill="black" transform="rotate(90,80,632)"></polygon>
-              <polygon class="arrowhead" points="88,576 76,570.4 76,581.6" fill="black" transform="rotate(90,80,576)"></polygon>
-              <polygon class="arrowhead" points="88,424 76,418.4 76,429.6" fill="black" transform="rotate(90,80,424)"></polygon>
-              <polygon class="arrowhead" points="88,352 76,346.4 76,357.6" fill="black" transform="rotate(90,80,352)"></polygon>
-              <polygon class="arrowhead" points="88,136 76,130.4 76,141.6" fill="black" transform="rotate(90,80,136)"></polygon>
+              <polygon class="arrowhead" points="352,640 340,634.4 340,645.6" fill="black" transform="rotate(90,344,640)"></polygon>
+              <path class="jump" d="M 344,616 C 338,616 338,600 344,600" fill="none" stroke="black"></path>
+              <polygon class="arrowhead" points="352,600 340,594.4 340,605.6" fill="black" transform="rotate(90,344,600)"></polygon>
+              <polygon class="arrowhead" points="352,432 340,426.4 340,437.6" fill="black" transform="rotate(90,344,432)"></polygon>
+              <path class="jump" d="M 344,392 C 338,392 338,376 344,376" fill="none" stroke="black"></path>
+              <polygon class="arrowhead" points="352,376 340,370.4 340,381.6" fill="black" transform="rotate(90,344,376)"></polygon>
+              <polygon class="arrowhead" points="352,144 340,138.4 340,149.6" fill="black" transform="rotate(90,344,144)"></polygon>
+              <polygon class="arrowhead" points="104,816 92,810.4 92,821.6" fill="black" transform="rotate(0,96,816)"></polygon>
+              <polygon class="arrowhead" points="104,784 92,778.4 92,789.6" fill="black" transform="rotate(0,96,784)"></polygon>
+              <polygon class="arrowhead" points="104,752 92,746.4 92,757.6" fill="black" transform="rotate(0,96,752)"></polygon>
+              <polygon class="arrowhead" points="104,720 92,714.4 92,725.6" fill="black" transform="rotate(0,96,720)"></polygon>
+              <polygon class="arrowhead" points="104,544 92,538.4 92,549.6" fill="black" transform="rotate(0,96,544)"></polygon>
+              <polygon class="arrowhead" points="104,512 92,506.4 92,517.6" fill="black" transform="rotate(0,96,512)"></polygon>
+              <polygon class="arrowhead" points="104,288 92,282.4 92,293.6" fill="black" transform="rotate(0,96,288)"></polygon>
+              <polygon class="arrowhead" points="104,256 92,250.4 92,261.6" fill="black" transform="rotate(0,96,256)"></polygon>
+              <polygon class="arrowhead" points="104,224 92,218.4 92,229.6" fill="black" transform="rotate(0,96,224)"></polygon>
+              <polygon class="arrowhead" points="88,648 76,642.4 76,653.6" fill="black" transform="rotate(90,80,648)"></polygon>
+              <polygon class="arrowhead" points="88,592 76,586.4 76,597.6" fill="black" transform="rotate(90,80,592)"></polygon>
+              <polygon class="arrowhead" points="88,440 76,434.4 76,445.6" fill="black" transform="rotate(90,80,440)"></polygon>
+              <polygon class="arrowhead" points="88,368 76,362.4 76,373.6" fill="black" transform="rotate(90,80,368)"></polygon>
+              <polygon class="arrowhead" points="88,152 76,146.4 76,157.6" fill="black" transform="rotate(90,80,152)"></polygon>
               <g class="text">
                 <text x="24" y="36">RFC</text>
                 <text x="60" y="36">9846</text>
@@ -4301,155 +4311,157 @@ and the figure labels the deck side generically.<a href="#appendix-A-1" class="p
                 <text x="164" y="36">9258</text>
                 <text x="292" y="36">This</text>
                 <text x="352" y="36">document,</text>
-                <text x="408" y="36">the</text>
-                <text x="444" y="36">deck</text>
-                <text x="500" y="36">schedule</text>
-                <text x="72" y="84">HKDF-Extract(0,</text>
-                <text x="156" y="84">PSK)</text>
-                <text x="280" y="84">E</text>
-                <text x="296" y="84">=</text>
-                <text x="332" y="84">Init()</text>
-                <text x="308" y="100">Absorb(E</text>
-                <text x="384" y="100">"psk_",</text>
-                <text x="436" y="100">PSK)</text>
-                <text x="56" y="164">Early</text>
-                <text x="108" y="164">Secret</text>
-                <text x="296" y="164">E</text>
-                <text x="352" y="164">accumulator</text>
-                <text x="156" y="196">Derive-Secret(.,</text>
-                <text x="244" y="196">Lbl,</text>
-                <text x="280" y="196">TH)</text>
-                <text x="396" y="196">DeriveN(E,</text>
-                <text x="464" y="196">[cet,</text>
-                <text x="512" y="196">ees],</text>
-                <text x="116" y="212">"c</text>
-                <text x="136" y="212">e</text>
-                <text x="180" y="212">traffic"</text>
-                <text x="248" y="212">TH_CH</text>
-                <text x="396" y="212">TH_CH)</text>
-                <text x="112" y="228">=</text>
-                <text x="168" y="228">c_e_traffic</text>
-                <text x="416" y="228">c_e_traffic</text>
-                <text x="116" y="244">"e</text>
-                <text x="144" y="244">exp</text>
-                <text x="192" y="244">master"</text>
-                <text x="256" y="244">TH_CH</text>
-                <text x="456" y="244">early_exporter_secret</text>
-                <text x="112" y="260">=</text>
-                <text x="208" y="260">early_exporter_secret</text>
-                <text x="404" y="260">binder_label</text>
-                <text x="464" y="260">=</text>
-                <text x="124" y="276">"imp</text>
-                <text x="176" y="276">binder"</text>
-                <text x="232" y="276">(no</text>
-                <text x="284" y="276">context)</text>
-                <text x="392" y="276">"ebk"</text>
-                <text x="448" y="276">"ibk"</text>
-                <text x="484" y="276">or</text>
-                <text x="520" y="276">"rbk"</text>
-                <text x="112" y="292">=</text>
-                <text x="164" y="292">binder_key</text>
-                <text x="396" y="292">DeriveN(E,</text>
-                <text x="428" y="308">[binder_label,</text>
-                <text x="520" y="308">"drv"])</text>
-                <text x="412" y="324">binder_key</text>
-                <text x="156" y="340">Derive-Secret(.,</text>
-                <text x="268" y="340">"derived")</text>
-                <text x="424" y="340">early_residue</text>
-                <text x="96" y="372">HKDF-Extract(derived,</text>
-                <text x="280" y="372">H</text>
-                <text x="296" y="372">=</text>
-                <text x="324" y="372">Init</text>
-                <text x="404" y="372">early_residue)</text>
-                <text x="68" y="388">asymmetric</text>
-                <text x="140" y="388">shared</text>
-                <text x="200" y="388">secret)</text>
-                <text x="308" y="388">Absorb(H</text>
-                <text x="384" y="388">"shs_",</text>
-                <text x="476" y="388">shared_secret)</text>
-                <text x="56" y="452">Handshake</text>
-                <text x="124" y="452">Secret</text>
-                <text x="296" y="452">H</text>
-                <text x="352" y="452">accumulator</text>
-                <text x="156" y="484">Derive-Secret(.,</text>
-                <text x="244" y="484">Lbl,</text>
-                <text x="280" y="484">TH)</text>
-                <text x="396" y="484">DeriveN(H,</text>
-                <text x="464" y="484">[cht,</text>
-                <text x="512" y="484">sht],</text>
-                <text x="116" y="500">"c</text>
-                <text x="140" y="500">hs</text>
-                <text x="188" y="500">traffic"</text>
-                <text x="256" y="500">TH_SH</text>
-                <text x="396" y="500">TH_SH)</text>
-                <text x="112" y="516">=</text>
-                <text x="172" y="516">c_hs_traffic</text>
-                <text x="420" y="516">c_hs_traffic</text>
-                <text x="116" y="532">"s</text>
-                <text x="140" y="532">hs</text>
-                <text x="188" y="532">traffic"</text>
-                <text x="256" y="532">TH_SH</text>
-                <text x="420" y="532">s_hs_traffic</text>
-                <text x="112" y="548">=</text>
-                <text x="172" y="548">s_hs_traffic</text>
-                <text x="156" y="564">Derive-Secret(.,</text>
-                <text x="268" y="564">"derived")</text>
-                <text x="396" y="564">Ratchet(H)</text>
-                <text x="464" y="564">emits</text>
-                <text x="520" y="564">residue</text>
-                <text x="96" y="596">HKDF-Extract(derived,</text>
-                <text x="196" y="596">0)</text>
-                <text x="280" y="596">T</text>
-                <text x="296" y="596">=</text>
-                <text x="324" y="596">Init</text>
-                <text x="380" y="596">residue)</text>
-                <text x="52" y="660">Main</text>
-                <text x="100" y="660">Secret</text>
-                <text x="296" y="660">T</text>
-                <text x="352" y="660">accumulator</text>
-                <text x="156" y="692">Derive-Secret(.,</text>
-                <text x="244" y="692">Lbl,</text>
-                <text x="280" y="692">TH)</text>
-                <text x="396" y="692">DeriveN(T,</text>
-                <text x="464" y="692">[cat,</text>
-                <text x="508" y="692">sat,</text>
-                <text x="552" y="692">exs],</text>
-                <text x="116" y="708">"c</text>
-                <text x="140" y="708">ap</text>
-                <text x="188" y="708">traffic"</text>
-                <text x="256" y="708">TH_SF</text>
-                <text x="396" y="708">TH_SF)</text>
-                <text x="112" y="724">=</text>
-                <text x="172" y="724">c_ap_traffic</text>
-                <text x="420" y="724">c_ap_traffic</text>
-                <text x="116" y="740">"s</text>
-                <text x="140" y="740">ap</text>
-                <text x="188" y="740">traffic"</text>
-                <text x="256" y="740">TH_SF</text>
-                <text x="420" y="740">s_ap_traffic</text>
-                <text x="112" y="756">=</text>
-                <text x="172" y="756">s_ap_traffic</text>
-                <text x="432" y="756">exporter_secret</text>
-                <text x="124" y="772">"exp</text>
-                <text x="176" y="772">master"</text>
-                <text x="240" y="772">TH_SF</text>
-                <text x="112" y="788">=</text>
-                <text x="184" y="788">exporter_secret</text>
-                <text x="392" y="788">Derive(T,</text>
-                <text x="460" y="788">"rss",</text>
-                <text x="516" y="788">TH_CF)</text>
-                <text x="124" y="804">"res</text>
-                <text x="176" y="804">master"</text>
-                <text x="240" y="804">TH_CF</text>
-                <text x="440" y="804">resumption_secret</text>
-                <text x="112" y="820">=</text>
-                <text x="192" y="820">resumption_secret</text>
+                <text x="288" y="52">the</text>
+                <text x="320" y="52">dec</text>
+                <text x="388" y="52">engine-based</text>
+                <text x="456" y="52">key</text>
+                <text x="508" y="52">schedule</text>
+                <text x="72" y="100">HKDF-Extract(0,</text>
+                <text x="156" y="100">PSK)</text>
+                <text x="280" y="100">E</text>
+                <text x="296" y="100">=</text>
+                <text x="332" y="100">Init()</text>
+                <text x="308" y="116">Absorb(E</text>
+                <text x="384" y="116">"psk_",</text>
+                <text x="436" y="116">PSK)</text>
+                <text x="56" y="180">Early</text>
+                <text x="108" y="180">Secret</text>
+                <text x="296" y="180">E</text>
+                <text x="352" y="180">accumulator</text>
+                <text x="156" y="212">Derive-Secret(.,</text>
+                <text x="244" y="212">Lbl,</text>
+                <text x="280" y="212">TH)</text>
+                <text x="396" y="212">DeriveN(E,</text>
+                <text x="464" y="212">[cet,</text>
+                <text x="512" y="212">ees],</text>
+                <text x="116" y="228">"c</text>
+                <text x="136" y="228">e</text>
+                <text x="180" y="228">traffic"</text>
+                <text x="248" y="228">TH_CH</text>
+                <text x="396" y="228">TH_CH)</text>
+                <text x="112" y="244">=</text>
+                <text x="168" y="244">c_e_traffic</text>
+                <text x="416" y="244">c_e_traffic</text>
+                <text x="116" y="260">"e</text>
+                <text x="144" y="260">exp</text>
+                <text x="192" y="260">master"</text>
+                <text x="256" y="260">TH_CH</text>
+                <text x="456" y="260">early_exporter_secret</text>
+                <text x="112" y="276">=</text>
+                <text x="208" y="276">early_exporter_secret</text>
+                <text x="404" y="276">binder_label</text>
+                <text x="464" y="276">=</text>
+                <text x="124" y="292">"imp</text>
+                <text x="176" y="292">binder"</text>
+                <text x="232" y="292">(no</text>
+                <text x="284" y="292">context)</text>
+                <text x="392" y="292">"ebk"</text>
+                <text x="448" y="292">"ibk"</text>
+                <text x="484" y="292">or</text>
+                <text x="520" y="292">"rbk"</text>
+                <text x="112" y="308">=</text>
+                <text x="164" y="308">binder_key</text>
+                <text x="396" y="308">DeriveN(E,</text>
+                <text x="428" y="324">[binder_label,</text>
+                <text x="520" y="324">"drv"])</text>
+                <text x="412" y="340">binder_key</text>
+                <text x="156" y="356">Derive-Secret(.,</text>
+                <text x="268" y="356">"derived")</text>
+                <text x="424" y="356">early_residue</text>
+                <text x="96" y="388">HKDF-Extract(derived,</text>
+                <text x="280" y="388">H</text>
+                <text x="296" y="388">=</text>
+                <text x="324" y="388">Init</text>
+                <text x="404" y="388">early_residue)</text>
+                <text x="68" y="404">asymmetric</text>
+                <text x="140" y="404">shared</text>
+                <text x="200" y="404">secret)</text>
+                <text x="308" y="404">Absorb(H</text>
+                <text x="384" y="404">"shs_",</text>
+                <text x="476" y="404">shared_secret)</text>
+                <text x="56" y="468">Handshake</text>
+                <text x="124" y="468">Secret</text>
+                <text x="296" y="468">H</text>
+                <text x="352" y="468">accumulator</text>
+                <text x="156" y="500">Derive-Secret(.,</text>
+                <text x="244" y="500">Lbl,</text>
+                <text x="280" y="500">TH)</text>
+                <text x="396" y="500">DeriveN(H,</text>
+                <text x="464" y="500">[cht,</text>
+                <text x="512" y="500">sht],</text>
+                <text x="116" y="516">"c</text>
+                <text x="140" y="516">hs</text>
+                <text x="188" y="516">traffic"</text>
+                <text x="256" y="516">TH_SH</text>
+                <text x="396" y="516">TH_SH)</text>
+                <text x="112" y="532">=</text>
+                <text x="172" y="532">c_hs_traffic</text>
+                <text x="420" y="532">c_hs_traffic</text>
+                <text x="116" y="548">"s</text>
+                <text x="140" y="548">hs</text>
+                <text x="188" y="548">traffic"</text>
+                <text x="256" y="548">TH_SH</text>
+                <text x="420" y="548">s_hs_traffic</text>
+                <text x="112" y="564">=</text>
+                <text x="172" y="564">s_hs_traffic</text>
+                <text x="156" y="580">Derive-Secret(.,</text>
+                <text x="268" y="580">"derived")</text>
+                <text x="396" y="580">Ratchet(H)</text>
+                <text x="464" y="580">emits</text>
+                <text x="520" y="580">residue</text>
+                <text x="96" y="612">HKDF-Extract(derived,</text>
+                <text x="196" y="612">0)</text>
+                <text x="280" y="612">T</text>
+                <text x="296" y="612">=</text>
+                <text x="324" y="612">Init</text>
+                <text x="380" y="612">residue)</text>
+                <text x="52" y="676">Main</text>
+                <text x="100" y="676">Secret</text>
+                <text x="296" y="676">T</text>
+                <text x="352" y="676">accumulator</text>
+                <text x="156" y="708">Derive-Secret(.,</text>
+                <text x="244" y="708">Lbl,</text>
+                <text x="280" y="708">TH)</text>
+                <text x="396" y="708">DeriveN(T,</text>
+                <text x="464" y="708">[cat,</text>
+                <text x="508" y="708">sat,</text>
+                <text x="552" y="708">exs],</text>
+                <text x="116" y="724">"c</text>
+                <text x="140" y="724">ap</text>
+                <text x="188" y="724">traffic"</text>
+                <text x="256" y="724">TH_SF</text>
+                <text x="396" y="724">TH_SF)</text>
+                <text x="112" y="740">=</text>
+                <text x="172" y="740">c_ap_traffic</text>
+                <text x="420" y="740">c_ap_traffic</text>
+                <text x="116" y="756">"s</text>
+                <text x="140" y="756">ap</text>
+                <text x="188" y="756">traffic"</text>
+                <text x="256" y="756">TH_SF</text>
+                <text x="420" y="756">s_ap_traffic</text>
+                <text x="112" y="772">=</text>
+                <text x="172" y="772">s_ap_traffic</text>
+                <text x="432" y="772">exporter_secret</text>
+                <text x="124" y="788">"exp</text>
+                <text x="176" y="788">master"</text>
+                <text x="240" y="788">TH_SF</text>
+                <text x="112" y="804">=</text>
+                <text x="184" y="804">exporter_secret</text>
+                <text x="392" y="804">Derive(T,</text>
+                <text x="460" y="804">"rss",</text>
+                <text x="516" y="804">TH_CF)</text>
+                <text x="124" y="820">"res</text>
+                <text x="176" y="820">master"</text>
+                <text x="240" y="820">TH_CF</text>
+                <text x="440" y="820">resumption_secret</text>
+                <text x="112" y="836">=</text>
+                <text x="192" y="836">resumption_secret</text>
               </g>
             </svg><a href="#appendix-A-2.1.1" class="pilcrow">¶</a>
 </div>
 </div>
 <figcaption><a href="#figure-2" class="selfRef">Figure 2</a>:
-<a href="#name-tls-13-with-imported-psks-a" class="selfRef">TLS 1.3 with Imported PSKs and the Deck Schedule</a>
+<a href="#name-tls-13-with-imported-psks-a" class="selfRef">TLS 1.3 with Imported PSKs and the Dec Engine-Based Key Schedule</a>
         </figcaption></figure>
 </div>
 <p id="appendix-A-3">The imported-PSK binder branch uses the label from <span><a href="https://rfc-editor.org/rfc/rfc9258#section-5.2" class="relref">Section 5.2</a> of [<a href="#RFC9258" class="cite xref">RFC9258</a>]</span>.<a href="#appendix-A-3" class="pilcrow">¶</a></p>
@@ -4471,11 +4483,11 @@ early data:  the case both <span><a href="https://rfc-editor.org/rfc/rfc9846#sec
 <a href="#key-schedule" class="auto internal xref">Section 7.4</a> cover completely.  Derivations after the handshake, for
 a NewSessionTicket, a KeyUpdate, or a TLS-Exporter request, are not
 counted.  Counts are per endpoint.<a href="#appendix-A.1-1" class="pilcrow">¶</a></p>
-<p id="appendix-A.1-2">A deck invocation is one Derive, DeriveN, MAC, or Ratchet call, each of
-which makes one DF call (<a href="#deck-interface" class="auto internal xref">Section 7.1</a>).  A TLS 1.3 invocation is
+<p id="appendix-A.1-2">A dec engine invocation is one Derive, DeriveN, MAC, or Ratchet call, each of
+which makes one DF call (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>).  A TLS 1.3 invocation is
 one HKDF-Extract, HKDF-Expand-Label, or HMAC call.  Absorb builds an
 input sequence rather than invoking the primitive and is not separately
-counted, matching how <a href="#shapes" class="auto internal xref">Section 7.3</a> already accounts for deck operations.
+counted, matching how <a href="#shapes" class="auto internal xref">Section 7.3</a> already accounts for dec engine operations.
 Transcript-hash computations are excluded from both columns:  both
 schedules compute the same checkpoints over the same messages.<a href="#appendix-A.1-2" class="pilcrow">¶</a></p>
 <span id="name-invocation-count-for-one-fu"></span><div id="invocation-count-table">
@@ -4487,7 +4499,7 @@ schedules compute the same checkpoints over the same messages.<a href="#appendix
 <thead>
             <tr>
               <th class="text-left" rowspan="1" colspan="1">Derived value</th>
-              <th class="text-left" rowspan="1" colspan="1">Deck (this document)</th>
+              <th class="text-left" rowspan="1" colspan="1">This document</th>
               <th class="text-left" rowspan="1" colspan="1">TLS 1.3</th>
             </tr>
           </thead>

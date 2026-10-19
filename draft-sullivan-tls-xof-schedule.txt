@@ -74,7 +74,7 @@ Table of Contents
    1.  Introduction
      1.1.  Design Goals
      1.2.  Scope
-     1.3.  Deck Functions
+     1.3.  Dec Engine
    2.  Conventions and Definitions
      2.1.  Transcript Hash
    3.  Key-Derivation Functions
@@ -91,8 +91,8 @@ Table of Contents
      5.8.  PSK Import Derivation
    6.  Negotiating a KDF
      6.1.  What the KDF Governs
-   7.  The Deck Schedule
-     7.1.  The Deck Schedule Interface
+   7.  The Dec Engine-Based Key Schedule
+     7.1.  The Dec Engine Interface
        7.1.1.  Operations
      7.2.  Labels and Alignment
      7.3.  Derivation Shapes
@@ -180,17 +180,18 @@ Table of Contents
    the default, and TLS 1.3's own schedule needs no identifier of its
    own.
 
-   Each KDF defined here is a profile of the same deck function.  This
-   extendable-output function absorbs the schedule's inputs as length-
-   framed strings and squeezes each derived value from the accumulated
+   Each KDF defined here is a profile of the same XOF.  This XOF is
+   viewed under the interface of a doubly extendable cryptographic (dec)
+   engine, where it absorbs the schedule's inputs as length-framed
+   strings and squeezes each derived value from the accumulated
    sequence.  It is defined once for both profiles in Section 7, and
    each selects a different permutation for it: TLS13_TURBOSHAKE256
    (Section 8) uses the 12-round TurboSHAKE256 [RFC9861], and
    TLS13_SHAKE256 (Section 9) uses the 24-round SHAKE256 [FIPS202].
    Finished and PSK binder values, including an Exported Authenticator's
    Finished, use one MAC (Section 5.2).  The Encrypted Client Hello
-   acceptance value is produced by the deck's output operation, Derive
-   (Section 5.7).
+   acceptance value is produced by the dec engine's output operation,
+   Derive (Section 5.7).
 
 1.1.  Design Goals
 
@@ -205,14 +206,14 @@ Table of Contents
    The alternative is to keep TLS 1.3's HKDF schedule and give it a
    SHA-3 hash.
 
-   The deck costs fewer permutation calls than that alternative.  HKDF
-   is built on HMAC, and every HMAC call nests two hash calls, overhead
-   that exists only to key a hash not built for keying.  A keyed sponge
-   needs no such wrapper: it produces each Derive output in one squeeze,
-   with no separate extract step between stages.
+   The dec engine costs fewer permutation calls than that alternative.
+   HKDF is built on HMAC, and every HMAC call nests two hash calls,
+   overhead that exists only to key a hash not built for keying.  A
+   keyed sponge needs no such wrapper: it produces each Derive output in
+   one squeeze, with no separate extract step between stages.
 
-   Over the representative handshake of Appendix A, the deck costs 23
-   Keccak permutation calls against 120 for a hash-only HKDF-SHA3-256
+   Over the representative handshake of Appendix A, the dec engine costs
+   23 Keccak permutation calls against 120 for a hash-only HKDF-SHA3-256
    over the same permutation (Appendix A.2).  HMAC accounts for four
    permutation calls in every HKDF operation, two for each of its nested
    hashes, where a Derive here costs one or two and a DeriveN at most
@@ -236,9 +237,9 @@ Table of Contents
    the cipher suite continues to name a hash, which under a KDF of this
    document governs nothing in the key schedule (Section 6.1).
 
-1.3.  Deck Functions
+1.3.  Dec Engine
 
-   A key schedule is a derivation tree.  A deck function (Section 7.1)
+   A key schedule is a derivation tree.  A dec engine (Section 7.1)
    expresses that tree directly: absorb a stage's inputs into a running
    accumulator, derive each leaf from a clone, and ratchet the
    accumulator into the next stage.  One XOF does the work HKDF splits
@@ -264,8 +265,9 @@ Table of Contents
       (Section 6).  It defines every key-schedule computation of the
       connection (Section 3) and determines the key schedule: a
       TLS13_TURBOSHAKE256 or TLS13_SHAKE256 identifier implies this
-      document's deck schedule (Section 7), and absence of the extension
-      implies TLS 1.3's HKDF schedule over the cipher suite's hash.
+      document's dec engine-based key schedule (Section 7), and absence
+      of the extension implies TLS 1.3's HKDF schedule over the cipher
+      suite's hash.
 
    selected_cipher_suite:  The cipher suite selected in the ServerHello
       message.
@@ -273,7 +275,14 @@ Table of Contents
    associated cipher suite:  The cipher suite associated with a PSK
       (Section 4).
 
-   trunk (stage trunk):  The running deck accumulator for a schedule
+   dec engine:  A doubly-extendable cryptographic (dec) stateful object,
+      whose input is a sequence of strings, and whose output is a hash
+      of that input.
+
+   dec accumulator:  The state of a dec engine, which materializes the
+      sequence of strings it received so far.
+
+   trunk (stage trunk):  The running dec accumulator for a schedule
       stage (E, H, or T), which absorbs the stage's inputs, is cloned
       for each of the stage's leaf outputs or DeriveN output tuples, and
       yields an internal squeezed residue that seeds the next stage's
@@ -367,8 +376,8 @@ Table of Contents
    schedule_profile extension (Section 6), independently of the cipher
    suite.  A KDF specifies:
 
-   *  the XOF over which its deck schedule and MAC are instantiated
-      (Section 7).
+   *  the XOF over which its dec engine-based key schedule and MAC are
+      instantiated (Section 7).
 
    *  SecretLen, the length of stage and traffic secrets.
 
@@ -490,21 +499,21 @@ Table of Contents
 
    Every derivation in this document that is keyed by a retained octet-
    string secret, rather than by a live stage of a profile's schedule,
-   is a deck session rooted at that secret (Section 7), specified once
-   for both profiles in Section 5.1 since the deck is identical up to
-   its permutation.  MAC, which computes the Finished and PSK binder
-   tags, is one such derivation (Section 5.2).  The stage schedule is
-   also the same for both profiles (Section 7.4), and only DF differs
-   (Section 8, Section 9).
+   is a dec engine rooted at that secret (Section 7), specified once for
+   both profiles in Section 5.1 since the dec engine is identical up to
+   the underlying cryptographic permutation.  MAC, which computes the
+   Finished and PSK binder tags, is one such derivation (Section 5.2).
+   The stage schedule is also the same for both profiles (Section 7.4),
+   and only DF differs (Section 8, Section 9).
 
 5.1.  Deriving from a Retained Secret
 
    A value keyed by a retained octet-string secret uses Derive or
-   DeriveN (Section 7.1) whose deck is seeded with that secret rather
-   than run as a live stage trunk.  The seed is the secret itself:
-   Init(secret), the same way a ratchet seeds the next stage with its
-   residue.  Derive then adds the context under the "ctx_" tag if any,
-   the label, and the output length under the "out_" tag:
+   DeriveN (Section 7.1) whose dec engine is seeded with that secret
+   rather than run as a live stage trunk.  The seed is the secret
+   itself: Init(secret), the same way a ratchet seeds the next stage
+   with its residue.  Derive then adds the context under the "ctx_" tag
+   if any, the label, and the output length under the "out_" tag:
 
 D     = Init(secret)                # Init frames schedule_label, "seed"
 value = Derive(D, label, [context], [L])
@@ -517,7 +526,7 @@ value = Derive(D, label, [context], [L])
    label is a 3-octet label registered in the TLS XOF Key Schedule
    Labels registry (Section 15.3), whose initial contents are the labels
    of Section 7.2, context is an octet string, and L is the output
-   length in octets.  Every item is length-framed by the deck
+   length in octets.  Every item is length-framed by the dec engine
    (Section 16.8).  DeriveN binds the ordered labels and lengths before
    one squeeze and partitions that output into disjoint slices.  An
    empty context is omitted rather than framed as an empty value, and
@@ -571,9 +580,9 @@ value = Derive(D, label, [context], [L])
 
    MAC(key, message, L) computes every tag in this document: the PSK
    binder, both Finished values, and the Finished of an Exported
-   Authenticator (Section 14.2).  It is a Derive over a deck seeded with
-   the key (Section 5.1), with the label "mac" and the message as its
-   context:
+   Authenticator (Section 14.2).  It is a Derive over a dec engine
+   seeded with the key (Section 5.1), with the label "mac" and the
+   message as its context:
 
    MAC(key, message, L) = Derive(Init(key), "mac", message, L)
 
@@ -734,10 +743,11 @@ value = Derive(D, label, [context], [L])
    binder" from Section 5.2 of [RFC9258], and "rbk" for a resumption
    PSK, replacing "res binder".
 
-   The handshake deck is seeded from this DeriveN (Section 7.4), so the
-   early residue depends on the binder label, so equal non-imported
-   external, imported, and resumption PSK bytes lead to different
-   handshake-stage inputs.  Without a PSK there is no binder DeriveN.
+   The handshake dec engine is seeded from this DeriveN (Section 7.4),
+   so the early residue depends on the binder label, so equal non-
+   imported external, imported, and resumption PSK bytes lead to
+   different handshake-stage inputs.  Without a PSK there is no binder
+   DeriveN.
 
    finished_key is derived under "fin" for both a Finished and a binder,
    and the two are already separated one step up by their base secret, a
@@ -817,8 +827,8 @@ value = Derive(D, label, [context], [L])
    Keying the confirmation on ClientHelloInner.random alone matches
    [RFC9849], whose confirmation key is HKDF-Extract(0,
    ClientHelloInner.random), with no handshake secret mixed in.  This
-   document seeds a deck with ClientHelloInner.random itself and takes
-   one Derive, in place of the extract-then-expand of [RFC9849].
+   document seeds a dec engine with ClientHelloInner.random itself and
+   takes one Derive, in place of the extract-then-expand of [RFC9849].
    Computing the confirmation requires ClientHelloInner.random, which
    only the client and a server that holds ClientHelloInner know.  Each
    confirmation's transcript covers the message that carries it, the
@@ -884,9 +894,9 @@ value = Derive(D, label, [context], [L])
    [RFC9258], with the entire serialized ImportedIdentity reduced by the
    transcript hash as the context.  ipsk is an explicit octet string by
    design: it crosses a system boundary into the PSK store.  epsk is
-   absorbed as the secret of a deck derivation (Section 5.1) in both
-   profiles, so a low-entropy or attacker-influenced epsk never keys
-   either profile's underlying permutation directly.
+   absorbed as the secret of a dec engine-based derivation (Section 5.1)
+   in both profiles, so a low-entropy or attacker-influenced epsk never
+   keys either profile's underlying permutation directly.
 
 6.  Negotiating a KDF
 
@@ -987,10 +997,10 @@ value = Derive(D, label, [context], [L])
    schedule uses it.  A connection that negotiates no KDF is unaffected:
    the suite's hash governs its schedule exactly as TLS 1.3 specifies.
 
-7.  The Deck Schedule
+7.  The Dec Engine-Based Key Schedule
 
-   Both KDFs of this document express the key schedule as a deck
-   function (Section 1.3).
+   Both KDFs of this document express the key schedule as a dec engine
+   (Section 1.3).
 
    The schedule's normative interface is defined here, in terms of the
    profile's XOF and nothing else: Init and Absorb build a framed input
@@ -1006,19 +1016,22 @@ value = Derive(D, label, [context], [L])
    schedule_label:  The fixed 6-octet ASCII string "tls13 " (with a
       trailing space), framed at Init (Section 7.1) into every
       derivation of both profiles, or "dtls13" on a DTLS 1.3 connection
-      (Section 14.1).  It marks the deck schedule and is identical for
-      both profiles, which are separated by their XOF, not by this
-      label.  It is byte-identical to the label prefix of HKDF-Expand-
-      Label, "tls13 " in Section 7.1 of [RFC9846] and "dtls13" in
+      (Section 14.1).  It marks the dec engine-based key schedule and is
+      identical for both profiles, which are separated by their XOF, not
+      by this label.  It is byte-identical to the label prefix of HKDF-
+      Expand-Label, "tls13 " in Section 7.1 of [RFC9846] and "dtls13" in
       Section 5.9 of [RFC9147].  Its byte-level separation from other
       uses of the same XOF, including the transcript hash, is covered in
       Section 16.8.
 
-   deck function:  An extendable-output function evaluated over a
-      sequence of framed input strings, with the output length bound
-      into the sequence before any output is produced (Section 7.1).
-      The construction beneath it is an XOF and takes no key parameter,
-      its secrets being ordinary framed inputs.  Related keyed-sponge
+   dec engine:  A doubly-extendable cryptographic (dec) stateful object,
+      whose input is a sequence of strings, and whose output is a hash
+      of that input.  In the scope of this document, it is implemented
+      as an extendable-output function evaluated over a sequence of
+      framed input strings, with the output length bound into the
+      sequence before any output is produced (Section 7.1).  The
+      construction beneath it is an XOF and takes no key parameter, its
+      secrets being ordinary framed inputs.  Related keyed-sponge
       results are discussed in Section 16.9.
 
    stage:  One of the three phases of the schedule: early (keyed by the
@@ -1027,27 +1040,28 @@ value = Derive(D, label, [context], [L])
       derivation of the retained traffic secret (Section 5.4), not a
       ratchet.
 
-   ratchet:  Replacing a stage's deck with a fresh deck seeded by a
-      residue squeezed from it under "drv", then destroying the old deck
-      (Section 16.7).  Section 7.4 gives the call that produces each
-      residue.
+   ratchet:  Replacing a stage's dec accumulator with a fresh one,
+      seeded by a residue squeezed from it under "drv", then destroying
+      the old dec accumulator (Section 16.7).  Section 7.4 gives the
+      call that produces each residue.
 
    The presentation is stateful, but the construction is not.  Each
-   Derive or DeriveN equals one invocation of a profile's deck function
-   over its framed input sequence.  The three stages of Section 7.4 are
-   protocol phases separated by stage boundaries, not KDF steps: shared
-   trunks absorb each input once, the two squeezed residues connect the
-   stages, and the one-way truncations fall at the stage boundaries
-   where TLS must erase prior state.  Their one-wayness is conditional
+   Derive or DeriveN equals one invocation of a profile's XOF over its
+   framed input sequence.  The three stages of Section 7.4 are protocol
+   phases separated by stage boundaries, not KDF steps: shared trunks
+   absorb each input once, the two squeezed residues connect the stages,
+   and the one-way truncations fall at the stage boundaries where TLS
+   must erase prior state.  Their one-wayness is conditional
    (Section 16.7).
 
-7.1.  The Deck Schedule Interface
+7.1.  The Dec Engine Interface
 
-   A deck is a running sequence of framed inputs.  The profile's DF(S,
-   L) is the XOF over that sequence (Section 8.1, Section 9.1).  It
-   returns L octets, and L is from 1 to 65535, since TurboSHAKE256 is
-   defined only for a positive output length ([RFC9861]).  The schedule
-   runs one deck per stage, driven by five operations.
+   A dec engine accumulates a running sequence of framed inputs.  The
+   profile's DF(S, L) is the XOF over that sequence (Section 8.1,
+   Section 9.1).  It returns L octets, and L is from 1 to 65535, since
+   TurboSHAKE256 is defined only for a positive output length
+   ([RFC9861]).  The schedule runs one dec engine per stage, driven by
+   five operations.
 
 7.1.1.  Operations
 
@@ -1079,72 +1093,74 @@ value = Derive(D, label, [context], [L])
  Ratchet(D)           residue = Derive(D, "drv")
                       return Init(residue)
                       # analogue of Derive-Secret(., "derived", "")
-                      # the next deck is Init, seeded with the residue
+                      # the next dec engine is seeded with the residue
 
    Each descriptor is framed in the listed order.  Each o_i is the next
    L_i octets of the squeezed string.  The output tuple and descriptor
    list use the notation of Section 5.1, with the optional context last.
 
-   Init starts a deck by framing schedule_label.  Every deck is Init'd,
-   so every keyed sequence opens with frame(schedule_label), the label
-   prefix of TLS 1.3 or DTLS 1.3 (Section 16.8).  A ratchet residue or a
-   retained secret is passed to Init as the seed and framed under the
-   tag "seed" (Section 7.4, Section 5.1).  Absorb feeds one tagged input
-   into the running deck.  That is the same role HKDF-Extract's mixing
-   step plays in TLS 1.3.
+   Init starts a dec engine with framing schedule_label.  Every dec
+   engine is Init'd, so every keyed sequence opens with
+   frame(schedule_label), the label prefix of TLS 1.3 or DTLS 1.3
+   (Section 16.8).  A ratchet residue or a retained secret is passed to
+   Init as the seed and framed under the tag "seed" (Section 7.4,
+   Section 5.1).  Absorb feeds one tagged input into the running dec
+   engine.  That is the same role HKDF-Extract's mixing step plays in
+   TLS 1.3.
 
    "outs" is a fixed DeriveN terminal marker alongside "out_".
 
-   Derive is the single-output operation.  It clones the running deck,
-   absorbs that leaf's context, then adds the leaf label.  The deck
-   being derived from fixes ctag: a live stage trunk takes "th__", whose
-   context is a transcript checkpoint, and a deck seeded from a retained
-   secret takes "ctx_", whose context is that derivation's expansion
-   context.  A Derive with no context frames neither.  The context
-   precedes the label here, the reverse of TLS 1.3's HkdfLabel order.
-   The framing is injective either way, and placing the context first
-   lets sibling leaves that share it branch after one absorption.
+   Derive is the single-output operation.  It clones the running dec
+   accumulator, absorbs that leaf's context, then adds the leaf label.
+   The dec accumulator being derived from fixes ctag: a live stage trunk
+   takes "th__", whose context is a transcript checkpoint, and a dec
+   engine seeded from a retained secret takes "ctx_", whose context is
+   that derivation's expansion context.  A Derive with no context frames
+   neither.  The context precedes the label here, the reverse of TLS
+   1.3's HkdfLabel order.  The framing is injective either way, and
+   placing the context first lets sibling leaves that share it branch
+   after one absorption.
 
-   The clone leaves the deck unchanged, so one deck yields all of a
-   stage's leaves.  Derive fills exactly HKDF-Expand-Label's role.  At a
-   stage leaf it stands in for TLS 1.3's Derive-Secret(secret, label,
-   Messages), with the deck in place of the secret.  A value keyed by a
-   retained secret is a Derive or DeriveN over a deck seeded with that
-   secret (Section 5.1).  A Derive that omits L, including the Ratchet
-   residue, outputs SecretLen octets.  A Derive that fixes its own
-   length passes L explicitly (the early key_block, sn_key, exporters,
-   the ECH confirmation, MAC).  When the context is omitted, L is the
-   third argument.
+   The clone leaves the dec engine unchanged, so one dec accumulator
+   yields all of a stage's leaves.  Derive fills exactly HKDF-Expand-
+   Label's role.  At a stage leaf it stands in for TLS 1.3's Derive-
+   Secret(secret, label, Messages), with the dec accumulator in place of
+   the secret.  A value keyed by a retained secret is a Derive or
+   DeriveN over a dec engine seeded with that secret (Section 5.1).  A
+   Derive that omits L, including the Ratchet residue, outputs SecretLen
+   octets.  A Derive that fixes its own length passes L explicitly (the
+   early key_block, sn_key, exporters, the ECH confirmation, MAC).  When
+   the context is omitted, L is the third argument.
 
-   DeriveN also clones the deck without consuming it, and uses the same
-   context rules.  Every DeriveN label MUST be registered, and labels
-   within a descriptor list MUST be distinct.  DeriveN MUST reject k
-   outside 2..65535, any L_i outside 1..65535, or a sum above 65535.
-   Lengths and their sum are checked before conversion to uint16,
-   without wraparound.  The count, labels, order, and each length are
-   absorbed before squeezing.  The total is determined by the length
-   list.  Binding only that total would not bind the partition.
+   DeriveN also clones the dec accumulator without consuming it, and
+   uses the same context rules.  Every DeriveN label MUST be registered,
+   and labels within a descriptor list MUST be distinct.  DeriveN MUST
+   reject k outside 2..65535, any L_i outside 1..65535, or a sum above
+   65535.  Lengths and their sum are checked before conversion to
+   uint16, without wraparound.  The count, labels, order, and each
+   length are absorbed before squeezing.  The total is determined by the
+   length list.  Binding only that total would not bind the partition.
 
    DeriveN is restricted to the fixed derivations of this document.  A
    caller MUST NOT omit, reorder, append, or resize descriptors
    according to which outputs it currently needs.  Each derivation fixes
-   the context and parent deck as well as the descriptors.  Other
-   protocols use Derive under Section 14.
+   the context and parent dec accumulator as well as the descriptors.
+   Other protocols use Derive under Section 14.
 
    Ratchet crosses a stage boundary.  Its residue is a Derive under the
    label "drv", which is this schedule's analogue of TLS 1.3's Derive-
-   Secret(., "derived", "") between stages.  The next deck is Init'd
-   like any other, framing schedule_label, then seeded with that
-   residue, so "drv" names the residue, not the new deck.  The residue
-   is internal and never leaves the schedule.  Any stage input, such as
-   the asymmetric shared secret, is a later Absorb into the new deck,
-   not part of the ratchet.
+   Secret(., "derived", "") between stages.  The next dec engine is
+   Init'd like any other, framing schedule_label, then seeded with that
+   residue, so "drv" names the residue, not the new dec accumulator.
+   The residue is internal and never leaves the schedule.  Any stage
+   input, such as the asymmetric shared secret, is a later Absorb into
+   the new dec engine, not part of the ratchet.
 
    Section 7.4 says which boundaries use Ratchet.
 
-   The old deck is retired: nothing absorbs into it or derives from it
-   afterward.  This is not the in-place Ratchet() of Cyclist or STROBE
-   ([XOODYAK], [STROBE]), which returns nothing.
+   The old dec engine is retired: nothing absorbs into it or derives
+   from it afterward.  This is not the in-place Ratchet() of Cyclist or
+   STROBE ([XOODYAK], [STROBE]), which returns nothing.
 
    A Derive is one DF call over its framed path, and a ratchet residue
    is one such Derive.  It is therefore byte-exact and testable alone.
@@ -1155,14 +1171,14 @@ value = Derive(D, label, [context], [L])
    frame(schedule_label) fills 8 octets and every framed tag, together
    with the two-octet length of the value it names, fills 8 more.  A
    value framed under a tag therefore starts on an 8-octet boundary
-   whenever every value before it in the deck input is a multiple of 8
-   octets long, which lets an implementation that absorbs 64-bit lanes
-   take key material without realigning it.  With the 64-octet secrets
-   and transcript hashes of this document, that holds for the PSK and
-   every seed, at offset 16, for the first asymmetric shared secret
-   component, at offset 88, for every transcript checkpoint and MAC
-   message that follows only such values, and for the context of the ECH
-   confirmations, at offset 56.
+   whenever every value before it in the dec engine's input is a
+   multiple of 8 octets long, which lets an implementation that absorbs
+   64-bit lanes take key material without realigning it.  With the
+   64-octet secrets and transcript hashes of this document, that holds
+   for the PSK and every seed, at offset 16, for the first asymmetric
+   shared secret component, at offset 88, for every transcript
+   checkpoint and MAC message that follows only such values, and for the
+   context of the ECH confirmations, at offset 56.
 
    It does not hold after a value whose length is not a multiple of 8.
    A P-521 shared secret is 66 octets, so the transcript checkpoint
@@ -1308,7 +1324,7 @@ value = Derive(D, label, [context], [L])
        Ratchet, or with a PSK as the "drv" output derived alongside
        binder_key.
 
-   4.  Deck derive: traffic and exporter secrets, PSK binder keys, as
+   4.  Dec derive: traffic and exporter secrets, PSK binder keys, as
        Derive or DeriveN.
 
    5.  Secret derive: record keys, exporter label secrets and outputs,
@@ -1321,8 +1337,8 @@ value = Derive(D, label, [context], [L])
 
    Shapes 1 through 3 act on the trunk of a stage.  Shapes 4 and 5 are
    the output operations, Derive and DeriveN, over a live trunk or over
-   a seeded deck rooted at a retained secret (Section 5.1).  Shape 6 is
-   shape 5 under the label "mac", with the message as context
+   a seeded dec engine rooted at a retained secret (Section 5.1).  Shape
+   6 is shape 5 under the label "mac", with the message as context
    (Section 5.2).  Record keys are derived from their traffic secret by
    a separate call, as in TLS 1.3, so a retained traffic secret suffices
    to re-derive its keys.  Deriving them within the call that produces
@@ -1346,7 +1362,7 @@ value = Derive(D, label, [context], [L])
    E = Init()
    Absorb(E, "psk_", PSK)             # "" when no PSK is selected
 
-   # early-stage leaves, each a clone of the early deck E
+   # early-stage leaves, each a clone of the early dec accumulator E
    (binder_key, early_residue) =                  # with a PSK
        DeriveN(E, [(binder_label, SecretLen),
                    ("drv",        SecretLen)])
@@ -1375,14 +1391,14 @@ value = Derive(D, label, [context], [L])
 
    With a PSK, early_residue is the "drv" output of the DeriveN on E
    that also derives binder_key, and both peers MUST seed the handshake
-   deck with it rather than with a residue of Ratchet(E), which would
-   differ.  Without a PSK, both early DeriveN calls are omitted and H =
-   Ratchet(E).  The handshake boundary always uses Ratchet(H).  The
-   DeriveN that derives c_e_traffic and early_exporter_secret is used
-   for 0-RTT.  At the early-to-handshake boundary, E and early_residue
-   are destroyed after H is initialized.  The handshake boundary
-   destroys H and its residue after T is initialized.  A PSK-only
-   handshake omits the Absorb into H.
+   dec engine with it rather than with a residue of Ratchet(E), which
+   would differ.  Without a PSK, both early DeriveN calls are omitted
+   and H = Ratchet(E).  The handshake boundary always uses Ratchet(H).
+   The DeriveN that derives c_e_traffic and early_exporter_secret is
+   used for 0-RTT.  At the early-to-handshake boundary, E and
+   early_residue are destroyed after H is initialized.  The handshake
+   boundary destroys H and its residue after T is initialized.  A PSK-
+   only handshake omits the Absorb into H.
 
    binder_label is selected as specified in Section 5.5. early_residue
    is retained until the early boundary.  The early traffic and exporter
@@ -1406,26 +1422,26 @@ value = Derive(D, label, [context], [L])
    This is unambiguous because a PSK of this document is never zero-
    length: an imported or resumption PSK is 64 octets (Section 10), and
    an endpoint MUST NOT use an empty raw external PSK.  Without a PSK,
-   the early stage carries no leaves and its deck holds only known
-   constants, as TLS 1.3's Early Secret is the extract of two known
-   constants.  The stage exists for uniformity across handshake modes,
-   and the schedule's security does not rest on its secrecy when no PSK
-   is present.  A PSK-only handshake omits Absorb(H, "shs_", ...)
+   the early stage carries no leaves and its dec accumulator holds only
+   known constants, as TLS 1.3's Early Secret is the extract of two
+   known constants.  The stage exists for uniformity across handshake
+   modes, and the schedule's security does not rest on its secrecy when
+   no PSK is present.  A PSK-only handshake omits Absorb(H, "shs_", ...)
    entirely: the tag "shs_" does not appear in the sequence.
 
 7.4.2.  Stage Secrets
 
-   The three stage decks E, H, and T are this schedule's analogue of TLS
-   1.3's Early, Handshake, and Main Secret.  They are states, not
-   values.  A leaf clones the running deck rather than reading an
-   extracted octet string, so no named early or main secret is
-   materialized.
+   The three stage dec accumulator E, H, and T are this schedule's
+   analogue of TLS 1.3's Early, Handshake, and Main Secret.  They are
+   states, not values.  A leaf clones the running dec engine rather than
+   reading an extracted octet string, so no named early or main secret
+   is materialized.
 
-   Each stage boundary seeds the next deck with a residue under "drv"
-   (Section 7.4), and that deck frames schedule_label at Init.  That
-   residue is the analogue of TLS 1.3's unnamed "derived" salt.  It
-   never leaves the schedule.  It seeds the next deck once and is then
-   discarded (Section 16.7).
+   Each stage boundary seeds the next dec engine with a residue under
+   "drv" (Section 7.4), and that dec engine frames schedule_label at
+   Init.  That residue is the analogue of TLS 1.3's unnamed "derived"
+   salt.  It never leaves the schedule.  It seeds the next dec engine
+   once and is then discarded (Section 16.7).
 
    The values that do leave, the traffic and exporter secrets, occupy
    disjoint slices within a DeriveN output tuple.  The DeriveN calls
@@ -1433,14 +1449,14 @@ value = Derive(D, label, [context], [L])
    secrets each bind their ordered labels, lengths, and transcript
    checkpoint (Section 16.8).  Early data is separated in addition by
    the 0-RTT equality check (Section 4).  Every stage binds its
-   transcript at the leaves, so the decks themselves bind none.  The
-   derivation graph maps onto the TLS 1.3 graph (Section 16.6.3).
+   transcript at the leaves, so the dec engines themselves bind none.
+   The derivation graph maps onto the TLS 1.3 graph (Section 16.6.3).
 
 8.  The TLS13_TURBOSHAKE256 Profile
 
-   The TLS13_TURBOSHAKE256 profile instantiates the deck schedule of
-   Section 7 with TurboSHAKE256 [RFC9861], built on the 12-round Keccak-
-   p[1600,12] permutation of [FIPS202].
+   The TLS13_TURBOSHAKE256 profile instantiates the dec engine-based key
+   schedule of Section 7 with TurboSHAKE256 [RFC9861], built on the
+   12-round Keccak-p[1600,12] permutation of [FIPS202].
 
    The profile parameters are:
 
@@ -1450,7 +1466,7 @@ value = Derive(D, label, [context], [L])
 
 8.1.  Instantiation
 
-   The deck function is:
+   The dec engine is implemented using TurboSHAKE256 as XOF:
 
    DF(S, L) = TurboSHAKE256(seq(S), 0x1F, L)
 
@@ -1487,15 +1503,15 @@ value = Derive(D, label, [context], [L])
 
 9.  The TLS13_SHAKE256 Profile
 
-   The TLS13_SHAKE256 profile instantiates the deck schedule of
-   Section 7 with plain SHAKE256 [FIPS202], built on the 24-round
-   Keccak-f[1600] permutation, in place of TurboSHAKE256's Keccak-
-   p[1600,12].  This profile mirrors the TLS13_TURBOSHAKE256 profile's
-   framing exactly: domain separation comes from the same framed-prefix
-   mechanism the TurboSHAKE profile uses, an absorbed
+   The TLS13_SHAKE256 profile instantiates the dec engine-based key
+   schedule of Section 7 with plain SHAKE256 [FIPS202], built on the
+   24-round Keccak-f[1600] permutation, in place of TurboSHAKE256's
+   Keccak-p[1600,12].  This profile mirrors the TLS13_TURBOSHAKE256
+   profile's framing exactly: domain separation comes from the same
+   framed-prefix mechanism the TurboSHAKE profile uses, an absorbed
    frame(schedule_label) at Init (Section 7.1), not from cSHAKE's
-   function-name and customization-string inputs.  The two profiles'
-   decks therefore differ only in the underlying permutation, so
+   function-name and customization-string inputs.  The two profiles' dec
+   engines therefore differ only in the underlying permutation, so
    derivation (Section 5.1) and the MAC construction (Section 5.2) are
    shared by both profiles.
 
@@ -1504,7 +1520,7 @@ value = Derive(D, label, [context], [L])
 
 9.1.  Instantiation
 
-   The deck function is:
+   The dec engine is implemented using SHAKE256 as XOF:
 
    DF(S, L) = SHAKE256(seq(S), 8 * L)
 
@@ -2127,9 +2143,9 @@ value = Derive(D, label, [context], [L])
    [TLS13KS] is proved over discrete extract-and-expand nodes, not over
    an accumulator carried across each stage and cloned at its leaves.
    The cross-stage chaining needs analysis, in particular absorbing the
-   asymmetric shared secret into a deck seeded with the early residue,
-   the step TLS 1.3 performs as an HKDF-Extract salted with the early
-   secret's "derived" value.
+   asymmetric shared secret into a dec engine seeded with the early
+   residue, the step TLS 1.3 performs as an HKDF-Extract salted with the
+   early secret's "derived" value.
 
    For DeriveN, that analysis must also cover joint outputs, selective
    disclosure, and the exposure changes caused by materializing and
@@ -2198,31 +2214,31 @@ value = Derive(D, label, [context], [L])
 
 16.8.  Domain Separation
 
-   Distinct derivation paths yield distinct byte strings as deck-
-   function inputs.  A framed sequence decodes to exactly one list of
-   items: frame(x) is uint16(len(x)) || x with no padding (Section 2).
+   Distinct derivation paths yield distinct byte strings as dec engine
+   inputs.  A framed sequence decodes to exactly one list of items:
+   frame(x) is uint16(len(x)) || x with no padding (Section 2).
 
-   Every deck opens with frame(schedule_label), then its rooting item
-   (Section 7.1, Section 5.1): the PSK for the early stage, the early
-   residue for the handshake stage, the handshake residue for the
+   Every dec engine opens with frame(schedule_label), then its rooting
+   item (Section 7.1, Section 5.1): the PSK for the early stage, the
+   early residue for the handshake stage, the handshake residue for the
    application stage, and the retained secret for a derivation
    (Section 7.4).  The PSK is framed under the tag "psk_" and every
    residue or retained secret under "seed", so the early trunk differs
-   from every other deck in its first tag.  Decks that open with the
-   same tag are told apart by their seed value and not by their
-   structure.  A path over a live stage trunk and a path over a deck
-   seeded with a retained secret draw from disjoint label vocabularies
-   (Section 7.4, Section 7.2).  Within either, every item before the
-   terminal label or the "outs" marker is a framed tag drawn from this
-   document's fixed vocabulary followed by its framed value, in an order
-   the schedule fixes, so two paths of the same kind and the same length
-   that agree tag for tag can differ only in a value.  Two paths that
-   differ at all therefore differ at some item, so their framed
-   sequences differ.  The "outs" marker cannot be a prefix tag or a
-   three-octet Derive label, so it separates DeriveN from both a Derive
-   and an unfinished prefix.  Its framed descriptor count fixes how many
-   labels and lengths follow, and those ordered lengths fix the DeriveN
-   output partition.
+   from every other dec accumulator in its first tag.  Decaccumulator
+   that open with the same tag are told apart by their seed value and
+   not by their structure.  A path over a live stage trunk and a path
+   over a dec engine seeded with a retained secret draw from disjoint
+   label vocabularies (Section 7.4, Section 7.2).  Within either, every
+   item before the terminal label or the "outs" marker is a framed tag
+   drawn from this document's fixed vocabulary followed by its framed
+   value, in an order the schedule fixes, so two paths of the same kind
+   and the same length that agree tag for tag can differ only in a
+   value.  Two paths that differ at all therefore differ at some item,
+   so their framed sequences differ.  The "outs" marker cannot be a
+   prefix tag or a three-octet Derive label, so it separates DeriveN
+   from both a Derive and an unfinished prefix.  Its framed descriptor
+   count fixes how many labels and lengths follow, and those ordered
+   lengths fix the DeriveN output partition.
 
    Unkeyed transcript hashing is separated at the byte level:
 
@@ -2404,13 +2420,15 @@ value = Derive(D, label, [context], [L])
 Appendix A.  Comparison with TLS 1.3
 
    This appendix is non-normative.  It compares the TLS 1.3 schedule
-   with the deck schedule of Section 7.  Both profiles share this
-   schedule and differ only in the underlying permutation, so the
-   comparison applies equally to TLS13_TURBOSHAKE256 and TLS13_SHAKE256,
-   and the figure labels the deck side generically.
+   with the dec engine-based key schedule of Section 7.  Both profiles
+   share this schedule and differ only in the underlying permutation, so
+   the comparison applies equally to TLS13_TURBOSHAKE256 and
+   TLS13_SHAKE256, and the figure labels the dec engine side
+   generically.
 
-  RFC 9846 and RFC 9258            This document, the deck schedule
-  =====================            ================================
+  RFC 9846 and RFC 9258            This document,
+                                   the dec engine-based key schedule
+  =====================            =================================
 
   HKDF-Extract(0, PSK)             E = Init()
                                    Absorb(E, "psk_", PSK)
@@ -2460,7 +2478,8 @@ Appendix A.  Comparison with TLS 1.3
           +-> "res master"  TH_CF          +-> resumption_secret
           |   = resumption_secret          |
 
-       Figure 2: TLS 1.3 with Imported PSKs and the Deck Schedule
+   Figure 2: TLS 1.3 with Imported PSKs and the Dec Engine-Based Key
+                                Schedule
 
    The imported-PSK binder branch uses the label from Section 5.2 of
    [RFC9258].
@@ -2483,95 +2502,95 @@ A.1.  Invocation Count
    NewSessionTicket, a KeyUpdate, or a TLS-Exporter request, are not
    counted.  Counts are per endpoint.
 
-   A deck invocation is one Derive, DeriveN, MAC, or Ratchet call, each
-   of which makes one DF call (Section 7.1).  A TLS 1.3 invocation is
-   one HKDF-Extract, HKDF-Expand-Label, or HMAC call.  Absorb builds an
-   input sequence rather than invoking the primitive and is not
-   separately counted, matching how Section 7.3 already accounts for
-   deck operations.  Transcript-hash computations are excluded from both
-   columns: both schedules compute the same checkpoints over the same
-   messages.
+   A dec engine invocation is one Derive, DeriveN, MAC, or Ratchet call,
+   each of which makes one DF call (Section 7.1).  A TLS 1.3 invocation
+   is one HKDF-Extract, HKDF-Expand-Label, or HMAC call.  Absorb builds
+   an input sequence rather than invoking the primitive and is not
+   separately counted, matching how Section 7.3 already accounts for dec
+   engine operations.  Transcript-hash computations are excluded from
+   both columns: both schedules compute the same checkpoints over the
+   same messages.
 
-   +=====================================+==========+=================+
-   | Derived value                       |Deck (this| TLS 1.3         |
-   |                                     |document) |                 |
-   +=====================================+==========+=================+
-   | Early Secret analogue               |0         | 1 (HKDF-        |
-   |                                     |          | Extract)        |
-   +-------------------------------------+----------+-----------------+
-   | binder_key                          |1         | 1 (Derive-      |
-   |                                     |(DeriveN) | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | finished_key (binder)               |1 (Derive)| 1 (Expand-      |
-   |                                     |          | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | PSK binder verify_data              |1 (MAC)   | 1 (HMAC)        |
-   +-------------------------------------+----------+-----------------+
-   | client_early_traffic_secret         |1         | 1 (Derive-      |
-   |                                     |(DeriveN) | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | early_exporter_secret               |0 (shared)| 1 (Derive-      |
-   |                                     |          | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | early traffic key + iv              |1 (Derive)| 2 (Expand-      |
-   |                                     |          | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | "derived" salt (to Handshake        |0 (shared)| 1 (Derive-      |
-   | Secret)                             |          | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | Handshake Secret (absorbed, not     |0         | 1 (HKDF-        |
-   | ratcheted)                          |          | Extract)        |
-   +-------------------------------------+----------+-----------------+
-   | client_handshake_traffic_secret     |1         | 1 (Derive-      |
-   |                                     |(DeriveN) | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | server_handshake_traffic_secret     |0 (shared)| 1 (Derive-      |
-   |                                     |          | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | client hs traffic key + iv          |1         | 2 (Expand-      |
-   |                                     |(DeriveN) | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | server hs traffic key + iv          |1         | 2 (Expand-      |
-   |                                     |(DeriveN) | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | finished_key (server Finished)      |0 (shared)| 1 (Expand-      |
-   |                                     |          | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | server Finished verify_data         |1 (MAC)   | 1 (HMAC)        |
-   +-------------------------------------+----------+-----------------+
-   | finished_key (client Finished)      |0 (shared)| 1 (Expand-      |
-   |                                     |          | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | client Finished verify_data         |1 (MAC)   | 1 (HMAC)        |
-   +-------------------------------------+----------+-----------------+
-   | "derived" salt (to Main Secret)     |1         | 1 (Derive-      |
-   |                                     |(Ratchet) | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | Main Secret analogue                |0         | 1 (HKDF-        |
-   |                                     |          | Extract)        |
-   +-------------------------------------+----------+-----------------+
-   | client_application_traffic_secret_0 |1         | 1 (Derive-      |
-   |                                     |(DeriveN) | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | server_application_traffic_secret_0 |0 (shared)| 1 (Derive-      |
-   |                                     |          | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | exporter_secret                     |0 (shared)| 1 (Derive-      |
-   |                                     |          | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | resumption_secret                   |1 (Derive)| 1 (Derive-      |
-   |                                     |          | Secret)         |
-   +-------------------------------------+----------+-----------------+
-   | client ap traffic key + iv (gen 0)  |1         | 2 (Expand-      |
-   |                                     |(DeriveN) | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | server ap traffic key + iv (gen 0)  |1         | 2 (Expand-      |
-   |                                     |(DeriveN) | Label)          |
-   +-------------------------------------+----------+-----------------+
-   | Total                               |15        | 30              |
-   +-------------------------------------+----------+-----------------+
+    +=====================================+=========+=================+
+    | Derived value                       |This     | TLS 1.3         |
+    |                                     |document |                 |
+    +=====================================+=========+=================+
+    | Early Secret analogue               |0        | 1 (HKDF-        |
+    |                                     |         | Extract)        |
+    +-------------------------------------+---------+-----------------+
+    | binder_key                          |1        | 1 (Derive-      |
+    |                                     |(DeriveN)| Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | finished_key (binder)               |1        | 1 (Expand-      |
+    |                                     |(Derive) | Label)          |
+    +-------------------------------------+---------+-----------------+
+    | PSK binder verify_data              |1 (MAC)  | 1 (HMAC)        |
+    +-------------------------------------+---------+-----------------+
+    | client_early_traffic_secret         |1        | 1 (Derive-      |
+    |                                     |(DeriveN)| Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | early_exporter_secret               |0        | 1 (Derive-      |
+    |                                     |(shared) | Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | early traffic key + iv              |1        | 2 (Expand-      |
+    |                                     |(Derive) | Label)          |
+    +-------------------------------------+---------+-----------------+
+    | "derived" salt (to Handshake        |0        | 1 (Derive-      |
+    | Secret)                             |(shared) | Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | Handshake Secret (absorbed, not     |0        | 1 (HKDF-        |
+    | ratcheted)                          |         | Extract)        |
+    +-------------------------------------+---------+-----------------+
+    | client_handshake_traffic_secret     |1        | 1 (Derive-      |
+    |                                     |(DeriveN)| Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | server_handshake_traffic_secret     |0        | 1 (Derive-      |
+    |                                     |(shared) | Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | client hs traffic key + iv          |1        | 2 (Expand-      |
+    |                                     |(DeriveN)| Label)          |
+    +-------------------------------------+---------+-----------------+
+    | server hs traffic key + iv          |1        | 2 (Expand-      |
+    |                                     |(DeriveN)| Label)          |
+    +-------------------------------------+---------+-----------------+
+    | finished_key (server Finished)      |0        | 1 (Expand-      |
+    |                                     |(shared) | Label)          |
+    +-------------------------------------+---------+-----------------+
+    | server Finished verify_data         |1 (MAC)  | 1 (HMAC)        |
+    +-------------------------------------+---------+-----------------+
+    | finished_key (client Finished)      |0        | 1 (Expand-      |
+    |                                     |(shared) | Label)          |
+    +-------------------------------------+---------+-----------------+
+    | client Finished verify_data         |1 (MAC)  | 1 (HMAC)        |
+    +-------------------------------------+---------+-----------------+
+    | "derived" salt (to Main Secret)     |1        | 1 (Derive-      |
+    |                                     |(Ratchet)| Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | Main Secret analogue                |0        | 1 (HKDF-        |
+    |                                     |         | Extract)        |
+    +-------------------------------------+---------+-----------------+
+    | client_application_traffic_secret_0 |1        | 1 (Derive-      |
+    |                                     |(DeriveN)| Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | server_application_traffic_secret_0 |0        | 1 (Derive-      |
+    |                                     |(shared) | Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | exporter_secret                     |0        | 1 (Derive-      |
+    |                                     |(shared) | Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | resumption_secret                   |1        | 1 (Derive-      |
+    |                                     |(Derive) | Secret)         |
+    +-------------------------------------+---------+-----------------+
+    | client ap traffic key + iv (gen 0)  |1        | 2 (Expand-      |
+    |                                     |(DeriveN)| Label)          |
+    +-------------------------------------+---------+-----------------+
+    | server ap traffic key + iv (gen 0)  |1        | 2 (Expand-      |
+    |                                     |(DeriveN)| Label)          |
+    +-------------------------------------+---------+-----------------+
+    | Total                               |15       | 30              |
+    +-------------------------------------+---------+-----------------+
 
-             Table 6: Invocation Count for One Full Handshake
+              Table 6: Invocation Count for One Full Handshake
 
    A value marked "0 (shared)" is an output of a DeriveN counted on
    another row: the "derived" salt with binder_key,
