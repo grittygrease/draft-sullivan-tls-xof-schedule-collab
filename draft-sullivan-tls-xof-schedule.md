@@ -232,7 +232,7 @@ Each KDF defined here is a profile of the same XOF.  This
 XOF is viewed under the interface of a doubly extendable cryptographic (dec) engine, where it absorbs the schedule's inputs as
 length-framed strings and squeezes each derived value from the
 accumulated sequence.  It is defined once for both profiles in
-{{deck-schedule}}, and each selects a different permutation for it:
+{{dec-schedule}}, and each selects a different permutation for it:
 TLS13_TURBOSHAKE256 ({{turboshake-profile}}) uses the 12-round
 TurboSHAKE256 {{RFC9861}}, and TLS13_SHAKE256 ({{shake-profile}}) uses
 the 24-round SHAKE256 {{FIPS202}}.  Finished and PSK binder values,
@@ -244,7 +244,7 @@ by the dec engine's output operation, Derive ({{ech-generic}}).
 
 A KDF turns the whole derivation surface of a connection into one named,
 testable object.  Every value comes from one permutation, every query is
-injectively framed ({{deck-interface}}), DeriveN outputs occupy disjoint
+injectively framed ({{dec-interface}}), DeriveN outputs occupy disjoint
 slices, and {{test-vectors}} gives byte-exact values for both profiles.
 Neither KDF uses SHA-2, HMAC, or HKDF in any role, and the
 correspondence with TLS 1.3 can be audited shape by shape ({{shapes}}).
@@ -283,10 +283,10 @@ certificate chains, or use PSK-only authentication.  Note also that the
 cipher suite continues to name a hash, which under a KDF of this
 document governs nothing in the key schedule ({{profile-governs}}).
 
-## Dec Engine {#deck-functions}
+## Dec Engine {#dec-functions}
 
 A key schedule is a derivation tree.  A dec engine
-({{deck-interface}}) expresses that tree directly:  absorb a stage's
+({{dec-interface}}) expresses that tree directly:  absorb a stage's
 inputs into a running accumulator, derive each leaf from a clone, and
 ratchet the accumulator into the next stage.  One XOF does the work HKDF
 splits between Extract, at the stage boundaries, and Expand-Label, at
@@ -294,7 +294,7 @@ the leaves.
 
 The construction takes no key:  a secret is an ordinary framed input.
 The operations named here, Init, Absorb, Derive, DeriveN, and Ratchet,
-are defined normatively in {{deck-schedule}}.
+are defined normatively in {{dec-schedule}}.
 
 # Conventions and Definitions {#conventions}
 
@@ -308,7 +308,7 @@ KDF:
   ({{cipher-suites}}).  It defines every key-schedule computation of the
   connection ({{schedule-profiles}}) and determines the key schedule:  a
   TLS13_TURBOSHAKE256 or TLS13_SHAKE256 identifier implies this
-  document's dec engine-based key schedule ({{deck-schedule}}), and absence of the
+  document's dec engine-based key schedule ({{dec-schedule}}), and absence of the
   extension implies TLS 1.3's HKDF schedule over the cipher suite's
   hash.
 
@@ -426,7 +426,7 @@ schedule_profile extension ({{cipher-suites}}), independently of the
 cipher suite.  A KDF specifies:
 
 - the XOF over which its dec engine-based key schedule and MAC are instantiated
-  ({{deck-schedule}}).
+  ({{dec-schedule}}).
 - SecretLen, the length of stage and traffic secrets.
 - FLen, the length of Finished and binder verify_data.
 - TranscriptHash(messages), the unkeyed transcript hash of
@@ -451,7 +451,7 @@ definition covers every computation listed above.
 
 Every derivation of a KDF MUST bind at least the following into the
 input of the underlying primitive: a protocol identifier (the KDFs of
-this document frame schedule_label, {{deck-schedule}}), each output
+this document frame schedule_label, {{dec-schedule}}), each output
 label and length (a KDF MAY instead fix the length of an internal stage
 secret as a constant, provided the operation that produces it is
 domain-separated from every variable-length operation), the transcript
@@ -463,7 +463,7 @@ encodings.  Outputs of one DeriveN share a query and occupy disjoint
 slices ({{domain-separation}}).
 
 Both profiles of this document bind each output length as uint16.
-DeriveN also bounds their sum to 65535 octets ({{deck-interface}}), so
+DeriveN also bounds their sum to 65535 octets ({{dec-interface}}), so
 no invocation produces more than 65535 octets.  The exporter is the one
 derivation whose length is caller-chosen, and {{exporters-generic}} says
 which requests it rejects.  Every other output length in this document
@@ -475,7 +475,7 @@ far below the bound.
 
 The negotiated KDF governs the whole key schedule of a connection, the
 role SHA-256 or SHA-384 plays in {{Section 7.1 of RFC9846}}.  Its XOF
-runs every derivation of the schedule ({{deck-schedule}}).
+runs every derivation of the schedule ({{dec-schedule}}).
 
 A PSK binder is computed before the server selects a cipher suite, and
 verified under the KDF the PSK is bound to.  As in {{Section 4.3.11 of
@@ -534,7 +534,7 @@ parameters is not eligible for early data.
 
 Every derivation in this document that is keyed by a retained
 octet-string secret, rather than by a live stage of a profile's
-schedule, is a dec engine rooted at that secret ({{deck-schedule}}),
+schedule, is a dec engine rooted at that secret ({{dec-schedule}}),
 specified once for both profiles in {{expand-op}} since the dec engine is
 identical up to the underlying cryptographic permutation.  MAC, which computes the Finished and
 PSK binder tags, is one such derivation ({{mac-op}}).  The stage
@@ -544,7 +544,7 @@ DF differs ({{turboshake-profile}}, {{shake-profile}}).
 ## Deriving from a Retained Secret {#expand-op}
 
 A value keyed by a retained octet-string secret uses Derive or DeriveN
-({{deck-interface}}) whose dec engine is seeded with that secret rather than
+({{dec-interface}}) whose dec engine is seeded with that secret rather than
 run as a live stage trunk.  The seed is the secret itself: Init(secret),
 the same way a ratchet seeds the next stage with its residue.  Derive
 then adds the context under the "ctx_" tag if any, the label, and the
@@ -625,7 +625,7 @@ MAC(key, message, L) = Derive(Init(key), "mac", message, L)
 ~~~~
 
 Every MAC of this document takes a 64-octet key and a 64-octet
-transcript hash as its message, so its input to DF ({{deck-interface}})
+transcript hash as its message, so its input to DF ({{dec-interface}})
 is these 167 octets, with the key and the message each starting on an
 8-octet boundary ({{labels}}).  The listing is the TLS 1.3 layout.  A
 DTLS 1.3 connection substitutes "dtls13" for "tls13 ", with the same
@@ -820,7 +820,7 @@ that sender's record keys ({{record-keys-generic}}).
 Binders are computed before the ServerHello.  This is possible in both
 profiles because the early trunk binds no cipher suite:  the client
 clones the early trunk to obtain binder_key at ClientHello time, in
-either profile ({{deck-schedule}}).
+either profile ({{dec-schedule}}).
 
 ## Exporters {#exporters-generic}
 
@@ -1055,10 +1055,10 @@ the suite, and takes SHA-256 from nowhere:  no part of the key schedule
 uses it.  A connection that negotiates no KDF is unaffected:  the
 suite's hash governs its schedule exactly as TLS 1.3 specifies.
 
-# The Dec Engine-Based Key Schedule {#deck-schedule}
+# The Dec Engine-Based Key Schedule {#dec-schedule}
 
 Both KDFs of this document express the key schedule as a dec engine
-({{deck-functions}}).
+({{dec-functions}}).
 
 The schedule's normative interface is defined here, in terms of the
 profile's XOF and nothing else:  Init and Absorb build a framed input
@@ -1073,7 +1073,7 @@ This document uses the following terms.
 
 schedule_label:
 : The fixed 6-octet ASCII string "tls13 " (with a trailing space),
-  framed at Init ({{deck-interface}}) into every derivation of both
+  framed at Init ({{dec-interface}}) into every derivation of both
   profiles, or "dtls13" on a DTLS 1.3 connection ({{dtls}}).  It marks
   the dec engine-based key schedule and is identical for both profiles, which are
   separated by their XOF, not by this label.  It is byte-identical to
@@ -1084,7 +1084,7 @@ schedule_label:
 
 dec engine:
 : A doubly-extendable cryptographic (dec) stateful object, whose input is a sequence of strings, and whose output is a hash of that input.
-  In the scope of this document, it is implemented as an extendable-output function evaluated over a sequence of framed input strings, with the output length bound into the sequence before any output is produced ({{deck-interface}}).
+  In the scope of this document, it is implemented as an extendable-output function evaluated over a sequence of framed input strings, with the output length bound into the sequence before any output is produced ({{dec-interface}}).
   The construction beneath
   it is an XOF and takes no key parameter, its secrets being ordinary
   framed inputs.  Related keyed-sponge results are discussed in
@@ -1093,7 +1093,7 @@ dec engine:
 stage:
 : One of the three phases of the schedule:  early (keyed by the PSK),
   handshake (adds the key-exchange secrets), and application.  Stages
-  are separated by ratchets ({{deck-interface}}).  A key update is a
+  are separated by ratchets ({{dec-interface}}).  A key update is a
   derivation of the retained traffic secret ({{key-update-generic}}),
   not a ratchet.
 
@@ -1112,7 +1112,7 @@ stages, and the one-way truncations fall at the stage boundaries where
 TLS must erase prior state.  Their one-wayness is conditional
 ({{erasure-boundaries}}).
 
-## The Dec Engine Interface {#deck-interface}
+## The Dec Engine Interface {#dec-interface}
 
 A dec engine accumulates a running sequence of framed inputs.  The profile's DF(S, L)
 is the XOF over that sequence ({{turboshake-instantiation}},
@@ -1373,7 +1373,7 @@ replace.  No leaf derivation binds one directly either.  A client
 offering several cipher suites under one KDF computes one schedule.
 Only record-key derivations depend directly on the suite, through Nk and
 Nn ({{record-keys-generic}}).  Every derivation frames schedule_label at
-Init ({{deck-interface}}).  The negotiated KDF is bound by the XOF, not
+Init ({{dec-interface}}).  The negotiated KDF is bound by the XOF, not
 by this label.  This listing is identical for both profiles.  Only each
 profile's DF instantiation differs ({{turboshake-profile}},
 {{shake-profile}}).
@@ -1477,7 +1477,7 @@ derivation graph maps onto the TLS 1.3 graph ({{derivation-graph}}).
 # The TLS13_TURBOSHAKE256 Profile {#turboshake-profile}
 
 The TLS13_TURBOSHAKE256 profile instantiates the dec engine-based key schedule of
-{{deck-schedule}} with TurboSHAKE256 {{RFC9861}}, built on the 12-round
+{{dec-schedule}} with TurboSHAKE256 {{RFC9861}}, built on the 12-round
 Keccak-p\[1600,12\] permutation of {{FIPS202}}.
 
 The profile parameters are:
@@ -1529,12 +1529,12 @@ same one TLS stacks already apply to SHA-2 transcript-hash checkpoints.
 # The TLS13_SHAKE256 Profile {#shake-profile}
 
 The TLS13_SHAKE256 profile instantiates the dec engine-based key schedule of
-{{deck-schedule}} with plain SHAKE256 {{FIPS202}}, built on the 24-round
+{{dec-schedule}} with plain SHAKE256 {{FIPS202}}, built on the 24-round
 Keccak-f\[1600\] permutation, in place of TurboSHAKE256's
 Keccak-p\[1600,12\].  This profile mirrors the TLS13_TURBOSHAKE256
 profile's framing exactly:  domain separation comes from the same
 framed-prefix mechanism the TurboSHAKE profile uses, an absorbed
-frame(schedule_label) at Init ({{deck-interface}}), not from cSHAKE's
+frame(schedule_label) at Init ({{dec-interface}}), not from cSHAKE's
 function-name and customization-string inputs.  The two profiles' dec engines
 therefore differ only in the underlying permutation, so derivation
 ({{expand-op}}) and the MAC construction ({{mac-op}}) are shared by both
@@ -1559,7 +1559,7 @@ octet-oriented L to the bit-oriented L argument of SHAKE256.
 SHAKE256 takes no function-name or customization-string input.  This
 profile's domain separation comes from seq(S) beginning with
 frame(schedule_label), as {{shake-profile}} describes
-({{deck-interface}}).
+({{dec-interface}}).
 
 The transcript hash of {{transcript-hash}} is instantiated with the same
 function: TranscriptHash(x) = SHAKE256("tls13 hash" || x, 512).
@@ -1744,7 +1744,7 @@ connection that negotiates no KDF uses {{RFC9147}} unchanged.
 
 First, {{Section 5.9 of RFC9147}} replaces the "tls13 " label prefix
 with "dtls13" to separate DTLS 1.3 keys from TLS 1.3 keys.
-schedule_label is that prefix ({{deck-schedule}}), so a DTLS 1.3
+schedule_label is that prefix ({{dec-schedule}}), so a DTLS 1.3
 connection frames "dtls13" at every Init:
 
 ~~~~
@@ -2225,7 +2225,7 @@ inputs.  A framed sequence decodes to exactly one list of items:
 frame(x) is uint16(len(x)) || x with no padding ({{conventions}}).
 
 Every dec engine opens with frame(schedule_label), then its rooting item
-({{deck-interface}}, {{expand-op}}):  the PSK for the early stage, the
+({{dec-interface}}, {{expand-op}}):  the PSK for the early stage, the
 early residue for the handshake stage, the handshake residue for the
 application stage, and the retained secret for a derivation
 ({{key-schedule}}).  The PSK is framed under the tag "psk_" and every
@@ -2293,7 +2293,7 @@ supports the same 256-bit target with a larger round margin
 # Comparison with TLS 1.3 {#comparison}
 
 This appendix is non-normative.  It compares the TLS 1.3 schedule with
-the dec engine-based key schedule of {{deck-schedule}}.  Both profiles share this
+the dec engine-based key schedule of {{dec-schedule}}.  Both profiles share this
 schedule and differ only in the underlying permutation, so the
 comparison applies equally to TLS13_TURBOSHAKE256 and TLS13_SHAKE256,
 and the figure labels the dec engine side generically.
@@ -2376,7 +2376,7 @@ a NewSessionTicket, a KeyUpdate, or a TLS-Exporter request, are not
 counted.  Counts are per endpoint.
 
 A dec engine invocation is one Derive, DeriveN, MAC, or Ratchet call, each of
-which makes one DF call ({{deck-interface}}).  A TLS 1.3 invocation is
+which makes one DF call ({{dec-interface}}).  A TLS 1.3 invocation is
 one HKDF-Extract, HKDF-Expand-Label, or HMAC call.  Absorb builds an
 input sequence rather than invoking the primitive and is not separately
 counted, matching how {{shapes}} already accounts for dec engine operations.
