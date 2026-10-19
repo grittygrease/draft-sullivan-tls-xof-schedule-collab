@@ -892,52 +892,15 @@ HelloRetryRequest.
 
 ### ECH and KDF Selection {#ech-kdf-selection}
 
-When ECH is accepted, the server applies {{cipher-suites}} to
-ClientHelloInner; when it is rejected, it applies those rules to
-ClientHelloOuter.  The two messages MAY have different schedule_profile
-offers, including different extension presence.  An offer in one does
-not authorize a selection in the other.  A server determines which
-ClientHello it processes as in {{RFC9849}} before selecting a KDF.
-
-ClientHelloOuter's offer is visible to network observers.  If
-schedule_profile is referenced by ech_outer_extensions, the
-reconstructed inner offer is identical to the outer offer.  A client
-MUST NOT offer in ClientHelloInner a KDF for which it cannot compute
-the ECH confirmation.
-
-To check ECH acceptance, the client uses the KDF indicated by the
-schedule_profile in the ServerHello or HelloRetryRequest carrying the
-confirmation.  If that extension is absent, it uses the cipher suite's
-HKDF and transcript hash, and the confirmation computation of
-{{RFC9849}} unchanged.  For a KDF of this document, it uses the
-computation above and that KDF's TranscriptHash over the inner
-transcript, including the modified response, as {{RFC9849}} specifies.
-The HPKE KDF used to encrypt ClientHelloInner is a separate choice and
-does not select the TLS key schedule or the confirmation computation.
-
-The client determines ECH acceptance as in {{Section 6.1.4 of RFC9849}}
-before applying the offer and local-policy checks of {{cipher-suites}}.
-A matching confirmation selects ClientHelloInner for those checks;
-otherwise ClientHelloOuter governs.  In particular, a client MUST NOT
-reject a selection solely because ClientHelloOuter did not offer it
-before checking whether ECH was accepted.  If the client cannot compute
-the indicated KDF's confirmation, it cannot confirm ECH acceptance and
-MUST validate the selection against ClientHelloOuter instead.  The
-unoffered-KDF and unsolicited-extension alerts of {{cipher-suites}}
-still apply.  The outer-handshake exception in {{cipher-suites}}
-remains subject to the authentication, retry and application-data
-restrictions of {{Section 6.1.6 of RFC9849}} and
-{{Section 6.1.7 of RFC9849}}.
-
-For HelloRetryRequest, the client determines ECH acceptance and
-validates the KDF against the applicable first ClientHello as above.
-That KDF, including HKDF when schedule_profile is absent, is pinned for
-the rest of the handshake.  The client MUST abort with illegal_parameter
-if the ServerHello changes it, before checking that message's
-confirmation.  An accepted-ECH HRR requires continued ECH acceptance
-under the pinned KDF, as {{Section 6.1.5 of RFC9849}} requires; a
-rejected-ECH HRR continues with ClientHelloOuter and cannot switch to
-ClientHelloInner in the same handshake.
+The server applies the rules of {{cipher-suites}} to ClientHelloInner if
+it accepts ECH and to ClientHelloOuter if it rejects it.  The two may
+offer different KDFs.  The client learns which from the server's first
+message, as in {{Section 6.1.4 of RFC9849}}.  It computes the
+confirmation under the KDF that message selects, or as in {{RFC9849}} if
+it selects none, and a confirmation it cannot compute counts as a
+rejection.  It then applies the rules of {{cipher-suites}} to the same
+ClientHello.  The KDF of the HPKE suite that encrypts ClientHelloInner
+plays no part in this selection.
 
 ## PSK Import Derivation {#import-derivation}
 
@@ -990,16 +953,13 @@ here and an endpoint of this document interoperates with TLS 1.3
 unchanged.
 
 A client that requires an alternative schedule MUST abort with a
-handshake_failure alert if either the ServerHello or a HelloRetryRequest
-omits the extension ({{downgrade-resistance}}), except for the ECH
-rejection case below.  This rule applies to the ClientHello that
-governs the handshake ({{ech-kdf-selection}}).  When ECH is rejected, a
-client MAY accept the TLS 1.3 schedule for the ClientHelloOuter
-handshake even if it requires an alternative schedule for
-ClientHelloInner.  That outer handshake carries no application data
-({{Section 6.1.6 of RFC9849}}).  The offered list does not signal
-whether the client requires an alternative schedule or permits
-fallback.
+handshake_failure alert if the server's first message, a
+HelloRetryRequest or ServerHello, omits the extension
+({{downgrade-resistance}}).  After an ECH rejection, the requirement
+does not extend to the ClientHelloOuter handshake, which only
+authenticates the public name for ECH retry and carries no application
+data ({{Section 6.1.6 of RFC9849}}).  The offered list does not signal
+whether the client requires an alternative schedule or permits fallback.
 
 Because absence is the sole signal for the TLS 1.3 schedule, a
 ScheduleProfileList MUST NOT include HKDF_SHA256 or HKDF_SHA384, the
@@ -1029,14 +989,13 @@ every later checkpoint under that KDF, and the HelloRetryRequest is
 covered by the transcript.  A HelloRetryRequest without the extension
 selects the TLS 1.3 schedule for the rest of the handshake, and the
 server MUST NOT then send the extension in its ServerHello.  A client
-MUST abort the handshake with an illegal_parameter alert if the
-ServerHello's schedule_profile, present or absent, differs from the
-HelloRetryRequest's, as {{Section 4.2.4 of RFC9846}} requires for the
-cipher suite.  The client MUST perform this comparison before the
-required-schedule check.
+that sent schedule_profile MUST abort the handshake with an
+illegal_parameter alert if the ServerHello's schedule_profile, present
+or absent, differs from the HelloRetryRequest's, as {{Section 4.2.4 of
+RFC9846}} requires for the cipher suite.
 
-When ECH is offered, the applicable ClientHello and the order of these
-checks are specified in {{ech-kdf-selection}}.
+With ECH, these rules apply to the ClientHello that
+{{ech-kdf-selection}} identifies.
 
 ## What the KDF Governs {#profile-governs}
 
@@ -1684,9 +1643,9 @@ in addition to those already defined by TLS 1.3:
 
 - illegal_parameter:  a ServerHello or HelloRetryRequest that selects a
   KDF missing from the client's schedule_profile list, a ServerHello
-  whose schedule_profile differs from the HelloRetryRequest's, or a
-  selected PSK whose KDF, for an imported PSK its target_kdf, is
-  incompatible with the selected KDF.
+  whose schedule_profile differs from the HelloRetryRequest's when the
+  client sent one, or a selected PSK whose KDF, for an imported PSK its
+  target_kdf, is incompatible with the selected KDF.
 
 - unsupported_extension:  a schedule_profile extension in a ServerHello
   or HelloRetryRequest when the ClientHello did not carry one, as in TLS
@@ -1695,9 +1654,8 @@ in addition to those already defined by TLS 1.3:
 - decrypt_error: a handshake or post-handshake Finished, or a PSK binder
   MAC, that fails verification, as in TLS 1.3.
 
-- handshake_failure:  a KDF of this document is required by local policy
-  but none is negotiated, except for the permitted ECH rejection case
-  in {{cipher-suites}}.
+- handshake_failure:  the server's first message omits schedule_profile
+  when local policy requires a KDF of this document ({{cipher-suites}}).
 
 # Companion Mechanisms {#companion-mechanisms}
 
@@ -2014,26 +1972,15 @@ would hold a different transcript, and its Finished MAC would fail.
 
 Stripping the extension in flight makes the ClientHello transcripts
 differ and the Finished MACs fail.  A server can decline the extension
-by omitting it from the ServerHello ({{cipher-suites}}).  The client
+by omitting it from its first message ({{cipher-suites}}).  The client
 decides whether to accept that capability mismatch.  A deployment that
 offers both KDFs accepts whichever the server echoes.
-
-The HKDF exception for an ECH-rejection outer handshake
-({{cipher-suites}}) does not relax the origin connection's KDF policy:
-no application data is sent on that outer handshake
-({{ech-kdf-selection}}).
 
 ## PSK Entropy {#psk-entropy}
 
 An attacker who can guess an external PSK can recompute its binder
 offline.  External PSKs SHOULD be drawn with at least 256 bits of
-entropy to match the 256-bit security target.  In the random-oracle
-guessing game, a PSK with h bits of min-entropy conditioned on the
-adversary's view contributes a guessing term of at most q / 2^h for q
-guesses.  This term does not replace the primitive-security bounds or
-establish security of the composed schedule
-({{cryptographic-analysis}}).  A 64-octet encoding does not by itself
-provide 512 bits of entropy.
+entropy, the target security level of both profiles.
 
 ## Authentication {#authentication-sec}
 
@@ -2090,10 +2037,11 @@ inputs query the oracle at different points, and the outputs of one
 DeriveN are disjoint slices of one answer.  In the random-oracle game,
 an adversary that never queries a string carrying the secret cannot
 distinguish those outputs from independent uniform strings.  For a
-secret with 512 bits of entropy conditioned on its view, the chance of
-such a query is at most q / 2^512 in q queries ({{psk-entropy}} covers a
-weaker external PSK).  These are bounds in that game, subject to the
-preceding composition step, not bounds for the complete protocol.
+secret with h bits of min-entropy conditioned on the adversary's view,
+the chance of such a query is at most q / 2^h in q queries.  For an
+external PSK with 256 bits of min-entropy ({{psk-entropy}}), that is
+q / 2^256.  These are bounds in that game, subject to the preceding
+composition step, not bounds for the complete protocol.
 
 If the DeriveN answer is uniform, revealing some slices leaves the
 others uniform and independent, provided the adversary has not queried
