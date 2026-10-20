@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
-"""Regenerate the Test Vectors appendix with both generators and compare.
+"""Regenerate the Test Vectors appendix with every available source.
 
 The Go generator (tools/go) and the Python verifier (tools/pyverify) each
 print every appendix value as "name: hex" under a "==== PROFILE ===="
 header.  This script runs both, reads all per-profile vector blocks of the
-draft's Test Vectors appendix, and checks that all three agree on every
-value, by profile and name.
+draft's Test Vectors appendix, and compares every value by profile and name.
+The patched Go TLS stack and altkdf-rs are also run when installed in .stack;
+see tools/stack/README.md. The two in-tree generators remain required.
 
 Usage: vectors_check.py [--draft FILE] [--go-out FILE] [--py-out FILE]
 With no --go-out or --py-out, the generators are run here.
-Exit status is 0 only if Go, Python and the appendix agree exactly.
+Exit status is 0 only if every source that ran agrees with the appendix.
 """
 import argparse
+import json
+import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+
+from stack_check import README, STACK, go_environment
 
 HERE = pathlib.Path(__file__).resolve().parent
 DRAFT = HERE.parent / "draft-sullivan-tls-xof-schedule.md"
@@ -64,10 +71,61 @@ def from_draft(text):
     return out
 
 
-def run(cmd, cwd):
-    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+def add_vector(out, profile, name, value):
+    if (not isinstance(profile, str) or not re.fullmatch(r"TLS13_\w+", profile)
+            or not isinstance(name, str) or not name
+            or not isinstance(value, str) or not re.fullmatch(r"(?:[0-9a-f]{2})+", value)):
+        raise ValueError("invalid stack vector profile, name or hex value")
+    if (profile, name) in out:
+        raise ValueError(f"duplicate stack vector: {profile} {name}")
+    out[(profile, name)] = value
+
+
+def from_go_stack(text):
+    out = {}
+    for profile in json.loads(text)["profiles"]:
+        for vector in profile["vectors"]:
+            add_vector(out, profile["profile"], vector["name"], vector["output"])
+    return out
+
+
+def from_rust(text):
+    out = {}
+    for line in text.splitlines():
+        profile, name, value = line.split("\t")
+        add_vector(out, profile, name, value)
+    return out
+
+
+def optional_sources():
+    sources = {}
+    if (STACK / "go/bin/go").is_file():
+        env = go_environment()
+        # A new directory prevents stale output from a skipped test from passing.
+        with tempfile.TemporaryDirectory(dir=STACK / "tmp", prefix="vectors-") as tmp:
+            env["TLS13DEC_VECTOR_DIR"] = tmp
+            run([str(STACK / "go/bin/go"), "test", "crypto/tls/internal/tls13dec",
+                 "-run", "^TestGenerateVectors$", "-count=1"], HERE.parent, env)
+            sources["Go TLS stack"] = from_go_stack((pathlib.Path(tmp) / "vectors.json").read_text())
+    else:
+        print(f"vectors-check: skipping Go TLS stack (not set up); see {README}")
+    if ((STACK / "altkdf-rs/Cargo.toml").is_file()
+            and (STACK / "cargo-home").is_dir() and shutil.which("cargo")):
+        env = os.environ.copy()
+        env.update(CARGO_HOME=str(STACK / "cargo-home"),
+                   CARGO_TARGET_DIR=str(STACK / "cargo-target"))
+        sources["Rust (altkdf-rs)"] = from_rust(run([
+            "cargo", "run", "--offline", "--locked", "-q", "--release",
+            "-p", "deck-schedule", "--example", "gen_vectors"], STACK / "altkdf-rs", env))
+    else:
+        print(f"vectors-check: skipping Rust (altkdf-rs) (not set up); see {README}")
+    return sources
+
+
+def run(cmd, cwd, env=None):
+    r = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
     if r.returncode != 0:
-        sys.exit(f"vectors-check: {' '.join(cmd)} failed:\n{r.stderr}")
+        sys.exit(f"vectors-check: {' '.join(cmd)} failed:\n{r.stdout}{r.stderr}")
     return r.stdout
 
 
@@ -91,22 +149,23 @@ def main():
                else run(["go", "run", "."], HERE / "go"))
     py_text = (pathlib.Path(args.py_out).read_text() if args.py_out
                else run([sys.executable, "-I", "verify.py"], HERE / "pyverify"))
-    go, py = from_generator(go_text), from_generator(py_text)
     try:
         draft = from_draft(pathlib.Path(args.draft).read_text())
-    except ValueError as e:
+        sources = {"Go": from_generator(go_text), "Python": from_generator(py_text)}
+        sources.update(optional_sources())
+    except (OSError, ValueError, KeyError, TypeError) as e:
         print(f"vectors-check: {e}", file=sys.stderr)
         return 1
 
-    bad = (compare("go", go, "python", py)
-           + compare("go", go, "appendix", draft))
+    bad = [error for name, values in sources.items()
+           for error in compare(name, values, "appendix", draft)]
     if not draft:
         bad.append("  no vector blocks found in the draft")
     if bad:
         print(f"vectors-check: {len(bad)} mismatch(es)")
         print("\n".join(bad))
         return 1
-    print(f"vectors-check: Go, Python and the appendix agree on all "
+    print(f"vectors-check: {', '.join(sources)} and the appendix agree on all "
           f"{len(draft)} values")
     return 0
 

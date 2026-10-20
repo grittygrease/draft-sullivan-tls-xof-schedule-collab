@@ -38,3 +38,7 @@ report.xml
 /go-count-stock/
 /go-count-xof/
 __pycache__/
+
+# Optional TLS stacks, toolchains, dependencies, caches and local reports.
+/.stack/
+!/tools/stack/bogo-baseline.txt

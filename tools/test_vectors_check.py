@@ -1,11 +1,44 @@
 """Regression tests for the appendix comparison used by vectors-check."""
 from pathlib import Path
+import json
 import subprocess
 import sys
 import tempfile
 import unittest
 
 import vectors_check
+
+
+class StackVectorTests(unittest.TestCase):
+    def go_text(self, vectors):
+        return json.dumps({"profiles": [{"profile": "TLS13_SHAKE256",
+                                         "vectors": vectors}]})
+
+    def test_formats_preserve_names_and_profiles(self):
+        name = 'write_iv  = key_block[16..28]'
+        expected = {("TLS13_SHAKE256", name): "abcd"}
+        self.assertEqual(vectors_check.from_go_stack(self.go_text([
+            {"name": name, "output": "abcd"}])), expected)
+        self.assertEqual(vectors_check.from_rust(
+            f"TLS13_SHAKE256\t{name}\tabcd\n"), expected)
+
+    def test_duplicate_values_are_rejected(self):
+        vector = {"name": "TH_CH", "output": "abcd"}
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            vectors_check.from_go_stack(self.go_text([vector, vector]))
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            vectors_check.from_rust("TLS13_SHAKE256\tTH_CH\tabcd\n" * 2)
+
+    def test_malformed_values_are_rejected(self):
+        for value in ("", "abc", "not-hex"):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    vectors_check.from_go_stack(self.go_text([
+                        {"name": "TH_CH", "output": value}]))
+                with self.assertRaises(ValueError):
+                    vectors_check.from_rust(f"TLS13_SHAKE256\tTH_CH\t{value}")
+        with self.assertRaises(ValueError):
+            vectors_check.from_rust("unexpected output")
 
 
 class DraftVectorTests(unittest.TestCase):
