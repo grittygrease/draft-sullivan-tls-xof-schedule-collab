@@ -84,6 +84,31 @@ informative:
     seriesinfo:
       "USENIX WOOT": "2016"
   RFC9954:
+  KECCAK:
+    target: https://keccak.team/files/Keccak-reference-3.0.pdf
+    title: "The Keccak reference"
+    author:
+      - ins: G. Bertoni
+      - ins: J. Daemen
+      - ins: M. Peeters
+      - ins: G. Van Assche
+    date: 2011
+  TURBOSHAKE:
+    target: https://eprint.iacr.org/2023/342
+    title: "TurboSHAKE"
+    author:
+      - ins: G. Bertoni
+      - ins: J. Daemen
+      - ins: S. Hoffert
+      - ins: M. Peeters
+      - ins: G. Van Assche
+      - ins: R. Van Keer
+      - ins: B. Viguier
+    date: 2023
+  KECCAK_CRYPTANALYSIS:
+    target: https://www.keccak.team/third_party.html
+    title: "Third-Party Cryptanalysis"
+    date: 2026
   BDPV08:
     target: https://keccak.team/files/SpongeIndifferentiability.pdf
     title: "On the Indifferentiability of the Sponge Construction"
@@ -96,6 +121,28 @@ informative:
     seriesinfo:
       "EUROCRYPT": "2008, LNCS 4965, pp. 181-197"
       DOI: 10.1007/978-3-540-78967-3_11
+  DHMVAVK25:
+    target: https://doi.org/10.1109/EuroSP63326.2025.00054
+    title: "Shaking up authenticated encryption"
+    author:
+      - ins: J. Daemen
+      - ins: S. Hoffert
+      - ins: S. Mella
+      - ins: G. Van Assche
+      - ins: R. Van Keer
+    date: 2025
+    seriesinfo:
+      "EuroS&P": "2025, pp. 861-882"
+      DOI: 10.1109/EUROSP63326.2025.00054
+  MW18:
+    target: https://doi.org/10.1007/978-3-319-78381-9_1
+    title: "On the Bit Security of Cryptographic Primitives"
+    author:
+      - ins: D. Micciancio
+      - ins: M. Walter
+    seriesinfo:
+      "EUROCRYPT": "2018, LNCS 10820, pp. 3-28"
+      DOI: 10.1007/978-3-319-78381-9_1
   XOODYAK:
     target: https://keccak.team/xoodyak.html
     title: "Xoodyak, a Lightweight Cryptographic Scheme"
@@ -1052,8 +1099,7 @@ dec engine:
   strings, with the output length bound into the sequence before any
   output is produced ({{dec-interface}}).  The construction beneath it
   is an XOF and takes no key parameter, its secrets being ordinary
-  framed inputs.  Related keyed-sponge results are discussed in
-  {{related-constructions}}.
+  framed inputs.
 
 stage:
 : One of the three phases of the schedule:  early (keyed by the PSK),
@@ -2012,10 +2058,9 @@ cross-stage simulation conditions left open in {{open-analysis}}.
 
 ## Cryptographic Analysis {#cryptographic-analysis}
 
-The per-derivation bound comes from the sponge analysis ({{BDPV08}}),
-assuming source secrecy and the composition below.  Protocol security
-also depends on erasure and authentication, with proof obligations still
-open ({{open-analysis}}).
+The per-derivation bound ultimately comes from the security claim on
+Keccak ({{KECCAK}}, Section 1.5) and on TurboSHAKE ({{TURBOSHAKE}},
+Section 2), as discussed in {{primitive-assumptions}}.
 
 ### Threat Model and Goals
 
@@ -2030,17 +2075,42 @@ compromise of a handshake traffic secret to application traffic once the
 asymmetric shared secret is used, and the TLS 1.3 0-RTT replay model
 when early data is accepted.
 
-### Primitive Assumptions
+### Primitive Assumptions {#primitive-assumptions}
 
-DF is the profile's XOF over a framed byte string, its permutation
-modeled as random ({{FIPS202}}).  A sponge over such a permutation is
-indifferentiable from a random oracle up to 2^(c/2) of its calls
-({{BDPV08}}, Theorem 2 and Section 5), which is 2^256 at the 512-bit
-capacity both profiles use.
+DF is the profile's XOF over a framed byte string.  The XOF is claimed
+secure under a flat sponge claim with the claimed capacity equal to the
+capacity of the underlying sponge function ({{KECCAK}}, Section 1.5, and
+{{TURBOSHAKE}}, Section 2), that is, c=512 in the scope of this
+document.  Informally, it means that SHAKE256 and TurboSHAKE256 shall
+offer the same security strength as a random oracle (RO) in all cases
+where the RO offers a strength below 256 bits and a strength of 256 bits
+otherwise.  Saying that a cryptographic function has a security strength
+of s bits means that no attacks exist with complexity N and success
+probability p such that N/p < 2^s {{MW18}}.  As for any concrete hash
+function or XOF, the claim excludes weaknesses due to the mere fact that
+the function can be described compactly and can be eﬀiciently executed,
+e.g., the so-called random oracle implementation impossibility {{MRH}},
+as well as properties that cannot be modeled as a single-stage game
+{{RSS}}.
 
-The step from sponge to oracle is the indifferentiability composition of
-{{MRH}}, which is sound for single-stage games and not in general for
-multi-stage ones ({{RSS}}).
+The claim is supported by the results of third-party cryptanalysis, of
+which a list of publications is available at {{KECCAK_CRYPTANALYSIS}}.
+ These results target reduced-round versions of Keccak, and at the time
+of this writing, no such result contradicts the above claim at the
+nominal number of rounds of (Turbo)SHAKE256.
+
+The claim is further supported by the proof of indifferentiability of
+the sponge construction that SHAKE256 and TurboSHAKE256 use.
+ Informally, this proof ensures the absence of generic attacks on a
+sponge function (i.e., attacks that work irrespective of the underlying
+permutation) below a complexity of 2^c/2 {{BDPV08}}, except for attacks
+whose complexity is already below 2^c/2 on a RO.
+
+In the sequel, we assume that the profile's XOF, and therefore the dec
+engine, is as secure as claimed and discussed above, and therefore
+reason on the usage of the XOF as that of a RO.
+
+### Primitive Usage
 
 Every Derive or DeriveN is a single call DF(S, L) where seq(S) is
 injectively framed ({{domain-separation}}), so calls with different
@@ -2058,9 +2128,7 @@ If the DeriveN answer is uniform, revealing some slices leaves the
 others uniform and independent, provided the adversary has not queried
 the secret-bearing input and has learned neither the full output tuple,
 nor a secret the tuple was derived from, nor another name for a target
-slice.  Real outputs are not uniform strings, so carrying this over to
-them needs a joint pseudorandomness assumption, or a completed game and
-simulation, together with their losses ({{open-analysis}}).
+slice.
 
 Finished and binder verification require MAC to be unforgeable under a
 chosen-message attack.  Each MAC key is a 64-octet finished_key used for
@@ -2122,7 +2190,7 @@ property {{RFC9849}} analyzes is not established here.
 
 ## Erasure Boundaries {#erasure-boundaries}
 
-A sponge accumulator is built on a permutation, and permutations are
+A sponge function is built on a permutation, and permutations are
 invertible.  If the intervening absorbed blocks are known, anyone
 holding a later state can recover the earlier one.  Carrying a raw
 accumulator across a stage boundary would therefore let a post-handshake
@@ -2215,22 +2283,6 @@ frame(schedule_label)  = uint16(6) || "tls13 "
 ~~~~
 
 The first octet separates a keyed sequence from the transcript hash.
-
-## Related Constructions {#related-constructions}
-
-An HKDF schedule over a SHA-3 hash would keep the analysis of
-{{TLS13KS}} applicable.  A proof that Derive and DeriveN are jointly
-pseudorandom, over many keys, would discharge the pseudorandomness
-assumptions {{TLS13KS}} makes of its expand function and of the MAC
-deriving its binder values, though not its extraction,
-collision-resistance or salted Diffie-Hellman assumptions.  No
-keyed-sponge result reaches this construction as specified.  The
-outer-keyed sponge is Sponge(K || m), the key first, with the analysis
-limited to keys occupying whole rate blocks ({{KEYEDSPONGE}}), where
-this schedule frames schedule_label ahead of a framed secret that does
-not fill a rate block.  Closing this needs a keyed-sponge result that
-tolerates a public prefix and a secret that does not fill a block, or a
-schedule that fits an existing one.
 
 ## Per-Profile Considerations {#per-profile-considerations}
 
