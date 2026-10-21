@@ -1941,8 +1941,8 @@ value = Derive(D, label, [context], [L])
    3.3 and 3.4).  Most secret inputs are bound to a single KDF
    (Section 4).  For those secrets, coincident framed inputs do not by
    themselves expose either secret if both XOFs jointly behave as
-   independent random oracles and the source-secrecy premises hold
-   (Section 16.6).
+   independent random oracles and each secret is unpredictable to the
+   adversary (Section 16.6).
 
    An external PSK used under both profiles is the exception.  For an
    imported PSK, Section 10 requires a separate ipsk per target_kdf, but
@@ -1986,26 +1986,15 @@ value = Derive(D, label, [context], [L])
 16.5.  Hybrid Key Exchange
 
    One uncompromised component keeps the derivation unpredictable even
-   if another is adversarial.  Under the flat sponge claim, each
-   derivation is modeled as a random-oracle call (Section 16.6.2), so an
-   output is unpredictable if any component absorbed before it is
-   unpredictable to the adversary.  The framing is injective and absorbs
-   each component separately (Section 16.8, Section 7.4), so components
-   of different lengths cannot run into one another.  Every stage leaf
-   derived after the shared secret binds a transcript checkpoint that
-   covers both key shares and any KEM ciphertexts: TH_SH for the
-   handshake traffic secrets, and TH_SF or TH_CF for the application
-   stage.  Keys derived from those secrets inherit the binding.  That
-   binding is what [BINDEL], Section 3.2, requires beyond a dual PRF of
-   the shared secrets.  Without it, an attacker who has broken one
-   component could substitute a ciphertext that encapsulates the same
-   key.  The residue that seeds the application stage binds no
-   transcript, as TLS 1.3's "derived" value binds none.  That is sound
-   only while H, the residue, and T stay inside the schedule
-   (Section 7.4.2), since every application-stage leaf binds its own
-   transcript checkpoint.  The uncompromised component's secrecy rests
-   on that exchange's own assumption, and the cross-stage chaining
-   analysis remains open (Section 16.6.5).
+   if another is adversarial.  Each component is absorbed as its own
+   framed input (Section 7.4, Section 16.8), and under the flat sponge
+   claim (Section 16.6.2) an output is unpredictable if any input before
+   it is.  Every leaf that depends on the shared secret binds a
+   transcript checkpoint (TH_SH, TH_SF, or TH_CF) covering all key
+   shares and any KEM ciphertexts, the binding that [BINDEL],
+   Section 3.2, adds to a dual PRF of the component secrets.  The
+   uncompromised component's secrecy rests on its own key-exchange
+   assumption, and the chaining analysis remains open (Section 16.6.5).
 
 16.6.  Cryptographic Analysis
 
@@ -2017,11 +2006,12 @@ value = Derive(D, label, [context], [L])
 
 16.6.1.  Threat Model and Goals
 
-   The adversary model and key-schedule goals are those of [TLS13KS]: an
-   active network adversary controls message delivery.  It may learn
-   selected stage secrets under compromise predicates.  Authentication
-   of peer identity remains outside the cipher suite, as in TLS 1.3.
-   The schedule must provide indistinguishability of record keys and
+   The adversary is that of [TLS13KS]: an active network adversary that
+   controls message delivery, can supply dishonest PSKs and key shares,
+   and can obtain output keys.  [TLS13KS] analyzes the secrecy of the
+   key schedule's output keys, not authentication.  Authentication of
+   peer identity remains outside the cipher suite, as in TLS 1.3.  The
+   schedule must provide indistinguishability of record keys and
    exporter outputs under the chosen AEAD, integrity of the handshake
    transcript through Finished and binder verification, forward secrecy
    from compromise of a handshake traffic secret to application traffic
@@ -2030,50 +2020,39 @@ value = Derive(D, label, [context], [L])
 
 16.6.2.  Primitive Assumptions
 
-   DF is the profile's XOF over a framed byte string.  SHAKE256
-   ([FIPS202], Appendix A.1) and TurboSHAKE256 ([RFC9861], Section 7)
-   each claim security strength up to 256 bits against attacks that a
-   random function of the requested output length resists.  Both rest on
-   a flat sponge claim whose claimed capacity equals the sponge
-   capacity, c = 512.  At c = 512, the claim allows an attack making N
-   calls to the permutation or its inverse at most about N^2 / 2^513
-   more success probability than against a random oracle ([KECCAK],
-   Section 1.5, and [TURBOSHAKE], Section 2).  Informally, SHAKE256 and
+   DF is the profile's XOF over a framed byte string.  The XOF is
+   claimed secure under a flat sponge claim with the claimed capacity
+   equal to the capacity of the underlying sponge function ([KECCAK],
+   Section 1.5, and [TURBOSHAKE], Section 2), that is, c=512 in the
+   scope of this document.  Informally, it means that SHAKE256 and
    TurboSHAKE256 are claimed to offer the same security strength as a
-   random oracle whenever the random oracle offers less than 256 bits,
-   and 256 bits otherwise.  In [MW18] (Definitions 8 to 10), s bits of
-   security means N / adv >= 2^s for every attack of complexity N, where
-   adv is the success probability in a search game and alpha * delta^2
-   in a decision game, with alpha the probability that the attack
-   outputs an answer and delta its distinguishing advantage given that
-   it does.  As for any concrete hash function or XOF, the claim
-   excludes weaknesses due to the mere fact that the function can be
-   described compactly and can be efficiently executed, e.g., the so-
-   called random oracle implementation impossibility [MRH], as well as
-   properties that cannot be modeled as a single-stage game [RSS].  This
-   analysis treats the goals in Section 16.6.1 as single-stage games,
-   which holds when external PSKs are generated independently of the
-   XOF.
+   random oracle (RO) in all cases where the RO offers a strength below
+   256 bits and a strength of 256 bits otherwise.  Security strength is
+   meant in the sense of [MW18], which covers decision games such as PRF
+   distinguishing as well as search games.  As for any concrete hash
+   function or XOF, the claim excludes weaknesses due to the mere fact
+   that the function can be described compactly and can be efficiently
+   executed, e.g., the so-called random oracle implementation
+   impossibility [MRH], as well as properties that cannot be modeled as
+   a single-stage game [RSS].
 
    The claim is supported by the results of third-party cryptanalysis,
    of which a list of publications is available at
    [KECCAK_CRYPTANALYSIS].  These results target reduced-round versions
-   of Keccak, and as of October 2026 no such result contradicts the
-   above claim at the nominal number of rounds of (Turbo)SHAKE256.
+   of Keccak, and at the time of this writing, no such result
+   contradicts the above claim at the nominal number of rounds of
+   (Turbo)SHAKE256.
 
    The claim is further supported by the proof of indifferentiability of
    the sponge construction that SHAKE256 and TurboSHAKE256 use.
    Informally, this proof ensures the absence of generic attacks on a
    sponge function (i.e., attacks that work irrespective of the
    underlying permutation) below a complexity of 2^(c/2) [BDPV08],
-   except for attacks whose complexity is already below 2^(c/2) on a
-   random oracle.
+   except for attacks whose complexity is already below 2^(c/2) on a RO.
 
-   The analysis below assumes that the profile's XOF is as secure as
-   claimed above.  The claim applies to each Derive and DeriveN output,
-   an XOF output on an injectively framed input (Section 16.8), and not
-   to the stateful dec engine, so the analysis reasons on each such XOF
-   call as on a random oracle.
+   In the sequel, we assume that the profile's XOF, and therefore the
+   dec engine, is as secure as claimed and discussed above, and
+   therefore reason on the usage of the XOF as that of a RO.
 
 16.6.3.  Primitive Usage
 
@@ -2113,11 +2092,9 @@ value = Derive(D, label, [context], [L])
    most 2^(-8L) to the forgery probability, in addition to the
    probability of querying the secret.
 
-   The uniformity of finished_key or a Finished MAC Key to an adversary
-   depends on that of the secrets beneath it and on the cross-stage
-   chaining steps that derive it (Section 16.6.5).  A finished_key
-   derived from a guessable external PSK is not uniform to the adversary
-   (Section 16.3).
+   The uniformity of finished_key to an adversary depends on that of the
+   secrets beneath it.  A finished_key derived from a guessable external
+   PSK is not uniform to the adversary (Section 16.3).
 
    If the ECH confirmation Derive output (Section 5.7) is pseudorandom,
    a network attacker without ClientHelloInner.random guesses the 8
@@ -2143,20 +2120,14 @@ value = Derive(D, label, [context], [L])
    The cross-stage chaining needs analysis, in particular absorbing the
    asymmetric shared secret into a dec engine seeded with the early
    residue, the step TLS 1.3 performs as an HKDF-Extract salted with the
-   early secret's "derived" value.  The flat sponge claim already makes
-   outputs independent across differing early residues, so the salting
-   that [TLS13KS] handles with its salted Oracle Diffie-Hellman
-   assumption costs nothing extra here.  The claim does not cover the
-   key exchange's hardness when an active attacker substitutes key
-   shares.  For Diffie-Hellman groups that is an oracle form of the
-   computational Diffie-Hellman assumption, and for a KEM an active-
-   attack assumption such as IND-CCA.  For a hybrid group it is that of
-   any one component, because every leaf that depends on the shared
-   secret binds all key shares and ciphertexts through the transcript.
-   The reasoning in Section 6.4 of [DHMVV25] can be followed to cover
-   derivations keyed by an independent PSK the adversary cannot predict,
-   directly or through residues chained from it, at the cost of one
-   replacement step per stage.  It does not cover the absorption of the
+   early secret's "derived" value.  The flat sponge claim does not cover
+   the key exchange itself.  Under active substitution of key shares, a
+   Diffie-Hellman group needs an oracle form of the computational
+   Diffie-Hellman assumption, and a KEM an active-attack assumption such
+   as IND-CCA (Section 16.5 covers hybrid groups).  The reasoning in
+   Section 6.4 of [DHMVV25] can be followed to cover derivations keyed
+   by an independent PSK the adversary cannot predict, directly or
+   through residues chained from it, but not the absorption of the
    shared secret or what depends on it alone.
 
    Whether the ECH confirmation replacement (Section 5.7) keeps every
