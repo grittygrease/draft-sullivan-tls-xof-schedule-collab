@@ -328,18 +328,15 @@ Table of Contents
 2.1.  Transcript Hash
 
    The transcript hash is an unkeyed 64-octet hash defined by the
-   negotiated KDF (Section 8, Section 9).  Its 64 octets keep 256-bit
-   collision resistance at c = 512 ([FIPS202], Appendix A.1, and
-   [RFC9861], Section 7), where 48 octets would give 192 bits.
-   TranscriptHash is computed over the handshake transcript as in
-   Section 4.1 of [RFC9846]: message type and length fields are
-   included, and record-layer framing is excluded.  TranscriptHash
-   accepts any octet string.  The TLS 1.3 rules define only how the
-   handshake transcript is serialized before hashing, and the same
-   function is applied to non-transcript inputs such as exporter
-   contexts and imported PSK identities.  For a HelloRetryRequest, the
-   synthetic-message construction in Section 4.1 of [RFC9846] is
-   retained, substituting TranscriptHash for Hash.
+   negotiated KDF (Section 8, Section 9).  TranscriptHash is computed
+   over the handshake transcript as in Section 4.1 of [RFC9846]: message
+   type and length fields are included, and record-layer framing is
+   excluded.  TranscriptHash accepts any octet string.  The TLS 1.3
+   rules define only how the handshake transcript is serialized before
+   hashing, and the same function is applied to non-transcript inputs
+   such as exporter contexts and imported PSK identities.  For a
+   HelloRetryRequest, the synthetic-message construction in Section 4.1
+   of [RFC9846] is retained, substituting TranscriptHash for Hash.
 
    In both profiles of this document, TranscriptHash takes no cipher
    suite input, so a client can compute its checkpoints before the
@@ -1942,16 +1939,10 @@ value = Derive(D, label, [context], [L])
    12-round Keccak-p[1600,12] and the 24-round Keccak-f[1600], though
    the first is the last 12 rounds of the second ([FIPS202], Sections
    3.3 and 3.4).  Most secret inputs are bound to a single KDF
-   (Section 4).  A secret bound to one KDF is absorbed only by that
-   profile's XOF.  Its security relies on that profile's claim and on
-   the premises that secret itself needs (Section 16.3, Section 16.6.5).
-   It does not rely on the two XOFs behaving as independent random
-   oracles, which per-function claims do not establish.  An ephemeral
-   shared secret is not bound to one KDF: when a client offers both, an
-   attacker who rewrites the ServerHello's schedule_profile makes the
-   client absorb it under the other XOF.  Its outputs there rest on
-   joint behavior of the two XOFs, which [TLS13KS] handles for TLS 1.3
-   with an agile salted Oracle Diffie-Hellman assumption.
+   (Section 4).  For those secrets, coincident framed inputs do not by
+   themselves expose either secret if both XOFs jointly behave as
+   independent random oracles and the source-secrecy premises hold
+   (Section 16.6).
 
    An external PSK used under both profiles is the exception.  For an
    imported PSK, Section 10 requires a separate ipsk per target_kdf, but
@@ -1967,9 +1958,9 @@ value = Derive(D, label, [context], [L])
 
    The selected cipher suite appears in the ServerHello and therefore in
    the transcript from TH_SH onward, which every handshake and
-   application leaf output binds (Section 7.4).  An authenticated peer
-   that assumed a different suite would hold a different transcript, and
-   its Finished MAC would fail (Section 16.6).
+   application output binds (Section 7.4).  A peer that assumed a
+   different suite would hold a different transcript, and its Finished
+   MAC would fail.
 
    Stripping the extension in flight makes the ClientHello transcripts
    differ and the Finished MACs fail.  A server can decline the
@@ -2021,8 +2012,8 @@ value = Derive(D, label, [context], [L])
    The per-derivation bound ultimately comes from the security claim on
    Keccak ([KECCAK], Section 1.5) and on TurboSHAKE ([TURBOSHAKE],
    Section 2), as discussed in Section 16.6.2.  Protocol security also
-   depends on erasure (Section 16.7) and authentication, with proof
-   obligations still open (Section 16.6.5).
+   depends on erasure and authentication, with proof obligations still
+   open (Section 16.6.5).
 
 16.6.1.  Threat Model and Goals
 
@@ -2186,14 +2177,12 @@ value = Derive(D, label, [context], [L])
    bearing input.  A boundary mixing an asymmetric shared_secret relies
    instead on the exchange's computational hardness and the open
    chaining analysis (Section 16.6.5), not on information-theoretic
-   entropy given the public key shares.  When a PSK is used, the early-
-   to-handshake boundary carries only the PSK, so its one-wayness
-   depends on the PSK's min-entropy (Section 16.3): a low-entropy
-   external PSK earns no forward secrecy there from that boundary alone,
-   while without a PSK the early trunk holds only known constants
-   (Section 7.4.1).  A PSK-only handshake absorbs no asymmetric shared
-   secret at all (Section 7.4.1), so every boundary has the same PSK-
-   entropy limitation.
+   entropy given the public key shares.  The early-to-handshake boundary
+   carries only the PSK, so its one-wayness depends on the PSK's min-
+   entropy (Section 16.3): a low-entropy external PSK earns no forward
+   secrecy there from that boundary alone.  A PSK-only handshake absorbs
+   no asymmetric shared secret at all (Section 7.4.1), so every boundary
+   has the same PSK-entropy limitation.
 
    The one-wayness argument is conditional on erasing the old trunk.
    The squeeze does not erase it.
@@ -2257,9 +2246,7 @@ value = Derive(D, label, [context], [L])
    a three-octet Derive label, so it separates DeriveN from both a
    Derive and an unfinished prefix.  Its framed descriptor count fixes
    how many labels and lengths follow, and those ordered lengths fix the
-   DeriveN output partition.  Domain separation does not depend on the
-   "out_" tag.  It gives the output length a tag of its own, as every
-   absorbed input and context already has.
+   DeriveN output partition.
 
    Unkeyed transcript hashing is separated at the byte level:
 
@@ -2276,10 +2263,7 @@ value = Derive(D, label, [context], [L])
 
    TLS13_TURBOSHAKE256 targets 256-bit security, which [RFC9861],
    Table 4 claims for TurboSHAKE256 and its 512-bit capacity ([RFC9861],
-   Section 2.2) supports.  The profile relies on TurboSHAKE256's flat
-   sponge claim for its 12-round permutation (Section 16.6.2), a
-   reduced-round premise with a smaller round margin than 24-round
-   SHAKE256 ([RFC9861], Section 7, and [TURBOSHAKE], Section 3).
+   Section 2.2) supports.  The 12-round assumption remains open.
 
 16.9.2.  TLS13_SHAKE256
 
@@ -2389,8 +2373,7 @@ value = Derive(D, label, [context], [L])
               2023, <https://eprint.iacr.org/2023/342>.
 
    [KECCAK_CRYPTANALYSIS]
-              Keccak Team, "Summary of Third-party cryptanalysis of
-              Keccak", September 2026,
+              "Third-Party Cryptanalysis", 2026,
               <https://www.keccak.team/third_party.html>.
 
    [BDPV08]   Bertoni, G., Daemen, J., Peeters, M., and G. Van Assche,
@@ -2407,7 +2390,7 @@ value = Derive(D, label, [context], [L])
 
    [MW18]     Micciancio, D. and M. Walter, "On the Bit Security of
               Cryptographic Primitives", EUROCRYPT 2018, LNCS 10820, pp.
-              3-28, DOI 10.1007/978-3-319-78381-9_1, 2018,
+              3-28, DOI 10.1007/978-3-319-78381-9_1, n.d.,
               <https://eprint.iacr.org/2018/077>.
 
    [XOODYAK]  Daemen, J., Hoffert, S., Peeters, M., Van Assche, G., and
@@ -2765,12 +2748,9 @@ Appendix D.  Test Vectors
    The server Finished uses TH_PRE_SF, the checkpoint immediately before
    that message.  TH_SF includes the server Finished and remains the
    checkpoint for application traffic and exporter secrets.  A client
-   Finished would use TH_SF if no handshake messages, including
-   EndOfEarlyData and client authentication messages, intervene.  The
-   main fixture derives the early traffic secret but does not model
-   accepted early data, so its client Finished uses TH_SF.  These
-   checkpoints are synthetic inputs, not hashes of encoded handshake
-   messages.
+   Finished would use TH_SF if no handshake messages, including client
+   authentication messages, intervene.  These checkpoints are synthetic
+   inputs, not hashes of encoded handshake messages.
 
    The main fixture takes its early residue from the DeriveN that
    derives binder_key and early_residue with "rbk".  The imported-PSK
