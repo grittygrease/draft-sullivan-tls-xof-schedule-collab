@@ -1,0 +1,40 @@
+name: "XOF stack checks"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: "Vectors, handshakes and BoGo"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - name: "Checkout"
+      uses: actions/checkout@v6
+
+    # Go 1.24.6 or later bootstraps go1.26.4 and runs the in-tree generator.
+    - name: "Setup Go"
+      uses: actions/setup-go@v7
+      with:
+        go-version: "1.24.x"
+        cache: false
+
+    - name: "Cache .stack"
+      id: stack
+      uses: actions/cache@v5
+      with:
+        path: .stack
+        key: xof-stack-${{ runner.os }}-${{ hashFiles('tools/stack/setup.sh', 'tools/stack/go1.26.4-xof.patch', 'tools/stack/altkdf-rs.rev', 'tools/stack/stockserver/main.go') }}
+
+    - name: "Build the Go TLS stack and altkdf-rs"
+      if: steps.stack.outputs.cache-hit != 'true'
+      run: GOROOT_BOOTSTRAP="$(go env GOROOT)" STOCK_GO="$(command -v go)" bash tools/stack/setup.sh
+
+    - name: "vectors-check"
+      run: python3 tools/vectors_check.py
+
+    - name: "check-stack"
+      run: python3 tools/stack_check.py
