@@ -122,7 +122,7 @@ informative:
       "EUROCRYPT": "2008, LNCS 4965, pp. 181-197"
       DOI: 10.1007/978-3-540-78967-3_11
   DHMVV25:
-    target: https://doi.org/10.1109/EuroSP63326.2025.00054
+    target: https://eprint.iacr.org/2024/1618
     title: "Shaking up authenticated encryption"
     author:
       - ins: J. Daemen
@@ -135,7 +135,7 @@ informative:
       "EuroS&P": "2025, pp. 861-882"
       DOI: 10.1109/EUROSP63326.2025.00054
   MW18:
-    target: https://doi.org/10.1007/978-3-319-78381-9_1
+    target: https://eprint.iacr.org/2018/077
     title: "On the Bit Security of Cryptographic Primitives"
     author:
       - ins: D. Micciancio
@@ -199,19 +199,6 @@ informative:
     seriesinfo:
       "EUROCRYPT": "2011, LNCS 6632, pp. 487-506"
       DOI: 10.1007/978-3-642-20465-4_27
-  KEYEDSPONGE:
-    target: https://doi.org/10.1007/978-3-662-48116-5_18
-    title: "Security of Keyed Sponge Constructions Using a Modular
-      Proof Approach"
-    author:
-      - ins: E. Andreeva
-      - ins: J. Daemen
-      - ins: B. Mennink
-      - ins: G. Van Assche
-    date: 2015
-    seriesinfo:
-      "FSE": "2015"
-      DOI: 10.1007/978-3-662-48116-5_18
   BINDEL:
     target: https://eprint.iacr.org/2018/903
     title: "Hybrid Key Encapsulation Mechanisms and Authenticated Key
@@ -275,10 +262,10 @@ extension of {{cipher-suites}}, independently of the cipher suite.  A
 connection that negotiates no KDF is a TLS 1.3 connection:  absence is
 the default, and TLS 1.3's own schedule needs no identifier of its own.
 
-Each KDF defined here is a profile of the same XOF.  This XOF is viewed
-under the interface of a doubly extendable cryptographic (dec) engine,
-where it absorbs the schedule's inputs as length-framed strings and
-squeezes each derived value from the accumulated sequence.  It is
+Each KDF defined here is a profile of the same construction:  an XOF
+viewed under the interface of a doubly extendable cryptographic (dec)
+engine, where it absorbs the schedule's inputs as length-framed strings
+and squeezes each derived value from the accumulated sequence.  It is
 defined once for both profiles in {{dec-schedule}}, and each selects a
 different permutation for it:  TLS13_TURBOSHAKE256
 ({{turboshake-profile}}) uses the 12-round TurboSHAKE256 {{RFC9861}},
@@ -1469,10 +1456,10 @@ the tag "shs_" does not appear in the sequence.
 
 ### Stage Secrets {#stage-secrets}
 
-The three stage dec accumulator E, H, and T are this schedule's analogue
-of TLS 1.3's Early, Handshake, and Main Secret.  They are states, not
-values.  A leaf clones the running dec engine rather than reading an
-extracted octet string, so no named early or main secret is
+The three stage dec accumulators E, H, and T are this schedule's
+analogue of TLS 1.3's Early, Handshake, and Main Secret.  They are
+states, not values.  A leaf clones the running dec engine rather than
+reading an extracted octet string, so no named early or main secret is
 materialized.
 
 Each stage boundary seeds the next dec engine with a residue under "drv"
@@ -2007,8 +1994,8 @@ the first is the last 12 rounds of the second ({{FIPS202}}, Sections 3.3
 and 3.4).  Most secret inputs are bound to a single KDF
 ({{governing-profile}}).  For those secrets, coincident framed inputs do
 not by themselves expose either secret if both XOFs jointly behave as
-independent random oracles and the source-secrecy premises hold
-({{cryptographic-analysis}}).
+independent random oracles and each secret is unpredictable to the
+adversary ({{cryptographic-analysis}}).
 
 An external PSK used under both profiles is the exception.  For an
 imported PSK, {{psk-importer}} requires a separate ipsk per target_kdf,
@@ -2037,7 +2024,7 @@ offers both KDFs accepts whichever the server echoes.
 
 An attacker who can guess an external PSK can recompute its binder
 offline.  External PSKs SHOULD be drawn with at least 256 bits of
-entropy, the target security level of both profiles.
+min-entropy, the target security level of both profiles.
 
 ## Authentication {#authentication-sec}
 
@@ -2048,34 +2035,40 @@ The exporter labels that Exported Authenticators use are registered, not
 reserved, so an application with access to the exporter can obtain the
 Finished MAC Key ({{exported-authenticators}}).
 
-## Hybrid Key Exchange
+## Hybrid Key Exchange {#hybrid-key-exchange}
 
-One high-entropy component keeps the derivation unpredictable even if
-another is adversarial.  This robustness relies on injective framing and
-the random-oracle argument ({{domain-separation}},
-{{cryptographic-analysis}}, {{BINDEL}}), and on the source-secrecy and
-cross-stage simulation conditions left open in {{open-analysis}}.
+One uncompromised component keeps the derivation unpredictable even if
+another is adversarial.  Each component is absorbed as its own framed
+input ({{key-schedule}}, {{domain-separation}}), and under the flat
+sponge claim ({{primitive-assumptions}}) an output is unpredictable if
+any input before it is.  Every leaf that depends on the shared secret
+binds a transcript checkpoint (TH_SH, TH_SF, or TH_CF) covering all key
+shares and any KEM ciphertexts, the binding that {{BINDEL}}, Section
+3.2, adds to a dual PRF of the component secrets.  The uncompromised
+component's secrecy rests on its own key-exchange assumption, and the
+chaining analysis remains open ({{open-analysis}}).
 
 ## Cryptographic Analysis {#cryptographic-analysis}
 
 The per-derivation bound ultimately comes from the security claim on
 Keccak ({{KECCAK}}, Section 1.5) and on TurboSHAKE ({{TURBOSHAKE}},
-Section 2), as discussed in {{primitive-assumptions}}. Protocol security
-also depends on erasure and authentication, with proof obligations still
-open ({{open-analysis}}).
+Section 2), as discussed in {{primitive-assumptions}}.  Protocol
+security also depends on erasure and authentication, with proof
+obligations still open ({{open-analysis}}).
 
 ### Threat Model and Goals
 
-The adversary model and key-schedule goals are those of {{TLS13KS}}: an
-active network adversary controls message delivery.  It may learn
-selected stage secrets under compromise predicates.  Authentication of
-peer identity remains outside the cipher suite, as in TLS 1.3.  The
-schedule must provide indistinguishability of record keys and exporter
-outputs under the chosen AEAD, integrity of the handshake transcript
-through Finished and binder verification, forward secrecy from
-compromise of a handshake traffic secret to application traffic once the
-asymmetric shared secret is used, and the TLS 1.3 0-RTT replay model
-when early data is accepted.
+The adversary is that of {{TLS13KS}}:  an active network adversary that
+controls message delivery, can supply dishonest PSKs and key shares, and
+can obtain output keys.  {{TLS13KS}} analyzes the secrecy of the key
+schedule's output keys, not authentication.  Authentication of peer
+identity remains outside the cipher suite, as in TLS 1.3.  The schedule
+must provide indistinguishability of record keys and exporter outputs
+under the chosen AEAD, integrity of the handshake transcript through
+Finished and binder verification, forward secrecy from compromise of a
+handshake traffic secret to application traffic once the asymmetric
+shared secret is used, and the TLS 1.3 0-RTT replay model when early
+data is accepted.
 
 ### Primitive Assumptions {#primitive-assumptions}
 
@@ -2083,17 +2076,16 @@ DF is the profile's XOF over a framed byte string.  The XOF is claimed
 secure under a flat sponge claim with the claimed capacity equal to the
 capacity of the underlying sponge function ({{KECCAK}}, Section 1.5, and
 {{TURBOSHAKE}}, Section 2), that is, c=512 in the scope of this
-document.  Informally, it means that SHAKE256 and TurboSHAKE256 shall
-offer the same security strength as a random oracle (RO) in all cases
-where the RO offers a strength below 256 bits and a strength of 256 bits
-otherwise.  Saying that a cryptographic function has a security strength
-of s bits means that no attacks exist with complexity N and success
-probability p such that N/p < 2^s {{MW18}}.  As for any concrete hash
-function or XOF, the claim excludes weaknesses due to the mere fact that
-the function can be described compactly and can be eﬀiciently executed,
-e.g., the so-called random oracle implementation impossibility {{MRH}},
-as well as properties that cannot be modeled as a single-stage game
-{{RSS}}.
+document.  Informally, it means that SHAKE256 and TurboSHAKE256 are
+claimed to offer the same security strength as a random oracle (RO) in
+all cases where the RO offers a strength below 256 bits and a strength
+of 256 bits otherwise.  Security strength is meant in the sense of
+{{MW18}}, which covers decision games such as PRF distinguishing as well
+as search games.  As for any concrete hash function or XOF, the claim
+excludes weaknesses due to the mere fact that the function can be
+described compactly and can be efficiently executed, e.g., the so-called
+random oracle implementation impossibility {{MRH}}, as well as
+properties that cannot be modeled as a single-stage game {{RSS}}.
 
 The claim is supported by the results of third-party cryptanalysis, of
 which a list of publications is available at {{KECCAK_CRYPTANALYSIS}}.
@@ -2103,7 +2095,7 @@ nominal number of rounds of (Turbo)SHAKE256.
 
 The claim is further supported by the proof of indifferentiability of
 the sponge construction that SHAKE256 and TurboSHAKE256 use.
- Informally, this proof ensures the absence of generic attacks on a
+Informally, this proof ensures the absence of generic attacks on a
 sponge function (i.e., attacks that work irrespective of the underlying
 permutation) below a complexity of 2^(c/2) {{BDPV08}}, except for
 attacks whose complexity is already below 2^(c/2) on a RO.
@@ -2122,9 +2114,9 @@ an adversary that never queries a string carrying the secret cannot
 distinguish those outputs from independent uniform strings.  For a
 secret with h bits of min-entropy conditioned on the adversary's view,
 the chance of such a query is at most q / 2^h in q queries.  For an
-external PSK with 256 bits of min-entropy ({{psk-entropy}}), that is
-q / 2^256.  These are bounds in that game, subject to the preceding
-composition step, not bounds for the complete protocol.
+external PSK with 256 bits of min-entropy ({{psk-entropy}}), that is q /
+2^256.  These are bounds in that game, subject to the flat sponge claim
+({{primitive-assumptions}}), not bounds for the complete protocol.
 
 If the DeriveN answer is uniform, revealing some slices leaves the
 others uniform and independent, provided the adversary has not queried
@@ -2178,10 +2170,15 @@ an accumulator carried across each stage and cloned at its leaves.  The
 cross-stage chaining needs analysis, in particular absorbing the
 asymmetric shared secret into a dec engine seeded with the early
 residue, the step TLS 1.3 performs as an HKDF-Extract salted with the
-early secret's "derived" value.  The reasoning in Section 6.4 of
-{{DHMVV25}} can be followed to cover derivations keyed directly by an
-independent PSK, but not the shared secret or secrets chained from
-earlier stages.
+early secret's "derived" value.  The flat sponge claim does not cover
+the key exchange itself.  Under active substitution of key shares, a
+Diffie-Hellman group needs an oracle form of the computational
+Diffie-Hellman assumption, and a KEM an active-attack assumption such as
+IND-CCA ({{hybrid-key-exchange}} covers hybrid groups).  The reasoning
+in Section 6.4 of {{DHMVV25}} can be followed to cover derivations keyed
+by an independent PSK the adversary cannot predict, directly or through
+residues chained from it, but not the absorption of the shared secret or
+what depends on it alone.
 
 Whether the ECH confirmation replacement ({{ech-generic}}) keeps every
 property {{RFC9849}} analyzes is not established here.
@@ -2196,17 +2193,17 @@ state compromise re-derive handshake traffic secrets when those
 intervening blocks are known.
 
 A Ratchet breaks the chain because its squeeze returns a function of the
-state, not the state itself.  In the random-oracle game ({{MRH}}),
-recovering it requires a query on the secret-bearing input.  A boundary
-mixing an asymmetric shared_secret relies instead on the exchange's
-computational hardness and the open chaining analysis
-({{open-analysis}}), not on information-theoretic entropy given the
-public key shares.  The early-to-handshake boundary carries only the
-PSK, so its one-wayness depends on the PSK's min-entropy
-({{psk-entropy}}):  a low-entropy external PSK earns no forward secrecy
-there from that boundary alone.  A PSK-only handshake absorbs no
-asymmetric shared secret at all ({{absent-empty}}), so every boundary
-has the same PSK-entropy limitation.
+state, not the state itself.  In the random-oracle game
+({{primitive-assumptions}}), recovering it requires a query on the
+secret-bearing input.  A boundary mixing an asymmetric shared_secret
+relies instead on the exchange's computational hardness and the open
+chaining analysis ({{open-analysis}}), not on information-theoretic
+entropy given the public key shares.  The early-to-handshake boundary
+carries only the PSK, so its one-wayness depends on the PSK's
+min-entropy ({{psk-entropy}}):  a low-entropy external PSK earns no
+forward secrecy there from that boundary alone.  A PSK-only handshake
+absorbs no asymmetric shared secret at all ({{absent-empty}}), so every
+boundary has the same PSK-entropy limitation.
 
 The one-wayness argument is conditional on erasing the old trunk.  The
 squeeze does not erase it.
@@ -2255,8 +2252,8 @@ early residue for the handshake stage, the handshake residue for the
 application stage, and the retained secret for a derivation
 ({{key-schedule}}).  The PSK is framed under the tag "psk_" and every
 residue or retained secret under "seed", so the early trunk differs from
-every other dec accumulator in its first tag.  Decaccumulator that open
-with the same tag are told apart by their seed value and not by their
+every other dec accumulator in its first tag.  Dec accumulators that
+open with the same tag are told apart by their seed value, not their
 structure.  A path over a live stage trunk and a path over a dec engine
 seeded with a retained secret draw from disjoint label vocabularies
 ({{key-schedule}}, {{labels}}).  Within either, every item before the
