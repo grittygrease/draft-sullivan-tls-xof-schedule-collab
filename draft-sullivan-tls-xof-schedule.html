@@ -1368,10 +1368,13 @@ the reduced-round TurboSHAKE256.  This document updates RFC 9147, RFC
                     <p id="section-toc.1-1.16.2.6.2.2.1"><a href="#section-16.6.2" class="auto internal xref">16.6.2</a>.  <a href="#name-primitive-assumptions" class="internal xref">Primitive Assumptions</a></p>
 </li>
                   <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.6.2.3">
-                    <p id="section-toc.1-1.16.2.6.2.3.1"><a href="#section-16.6.3" class="auto internal xref">16.6.3</a>.  <a href="#name-derivation-graph" class="internal xref">Derivation Graph</a></p>
+                    <p id="section-toc.1-1.16.2.6.2.3.1"><a href="#section-16.6.3" class="auto internal xref">16.6.3</a>.  <a href="#name-primitive-usage" class="internal xref">Primitive Usage</a></p>
 </li>
                   <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.6.2.4">
-                    <p id="section-toc.1-1.16.2.6.2.4.1"><a href="#section-16.6.4" class="auto internal xref">16.6.4</a>.  <a href="#name-what-is-not-yet-established" class="internal xref">What Is Not Yet Established</a></p>
+                    <p id="section-toc.1-1.16.2.6.2.4.1"><a href="#section-16.6.4" class="auto internal xref">16.6.4</a>.  <a href="#name-derivation-graph" class="internal xref">Derivation Graph</a></p>
+</li>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.6.2.5">
+                    <p id="section-toc.1-1.16.2.6.2.5.1"><a href="#section-16.6.5" class="auto internal xref">16.6.5</a>.  <a href="#name-what-is-not-yet-established" class="internal xref">What Is Not Yet Established</a></p>
 </li>
                 </ul>
 </li>
@@ -1382,16 +1385,13 @@ the reduced-round TurboSHAKE256.  This document updates RFC 9147, RFC
                 <p id="section-toc.1-1.16.2.8.1"><a href="#section-16.8" class="auto internal xref">16.8</a>.  <a href="#name-domain-separation" class="internal xref">Domain Separation</a></p>
 </li>
               <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.9">
-                <p id="section-toc.1-1.16.2.9.1"><a href="#section-16.9" class="auto internal xref">16.9</a>.  <a href="#name-related-constructions" class="internal xref">Related Constructions</a></p>
-</li>
-              <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.10">
-                <p id="section-toc.1-1.16.2.10.1"><a href="#section-16.10" class="auto internal xref">16.10</a>. <a href="#name-per-profile-considerations" class="internal xref">Per-Profile Considerations</a></p>
+                <p id="section-toc.1-1.16.2.9.1"><a href="#section-16.9" class="auto internal xref">16.9</a>.  <a href="#name-per-profile-considerations" class="internal xref">Per-Profile Considerations</a></p>
 <ul class="compact toc ulBare ulEmpty">
-<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.10.2.1">
-                    <p id="section-toc.1-1.16.2.10.2.1.1"><a href="#section-16.10.1" class="auto internal xref">16.10.1</a>.  <a href="#name-tls13_turboshake256" class="internal xref">TLS13_TURBOSHAKE256</a></p>
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.9.2.1">
+                    <p id="section-toc.1-1.16.2.9.2.1.1"><a href="#section-16.9.1" class="auto internal xref">16.9.1</a>.  <a href="#name-tls13_turboshake256" class="internal xref">TLS13_TURBOSHAKE256</a></p>
 </li>
-                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.10.2.2">
-                    <p id="section-toc.1-1.16.2.10.2.2.1"><a href="#section-16.10.2" class="auto internal xref">16.10.2</a>.  <a href="#name-tls13_shake256" class="internal xref">TLS13_SHAKE256</a></p>
+                  <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.16.2.9.2.2">
+                    <p id="section-toc.1-1.16.2.9.2.2.1"><a href="#section-16.9.2" class="auto internal xref">16.9.2</a>.  <a href="#name-tls13_shake256" class="internal xref">TLS13_SHAKE256</a></p>
 </li>
                 </ul>
 </li>
@@ -2419,8 +2419,7 @@ extendable-output function evaluated over a sequence of framed input
 strings, with the output length bound into the sequence before any
 output is produced (<a href="#dec-interface" class="auto internal xref">Section 7.1</a>).  The construction beneath it
 is an XOF and takes no key parameter, its secrets being ordinary
-framed inputs.  Related keyed-sponge results are discussed in
-<a href="#related-constructions" class="auto internal xref">Section 16.9</a>.<a href="#section-7-4.4.1" class="pilcrow">¶</a></p>
+framed inputs.<a href="#section-7-4.4.1" class="pilcrow">¶</a></p>
 </dd>
         <dd class="break"></dd>
 <dt id="section-7-4.5">stage:</dt>
@@ -2974,7 +2973,7 @@ each bind their ordered labels, lengths, and transcript checkpoint
 (<a href="#domain-separation" class="auto internal xref">Section 16.8</a>).  Early data is separated in addition by the
 0-RTT equality check (<a href="#governing-profile" class="auto internal xref">Section 4</a>).  Every stage binds its
 transcript at the leaves, so the dec engines themselves bind none.  The
-derivation graph maps onto the TLS 1.3 graph (<a href="#derivation-graph" class="auto internal xref">Section 16.6.3</a>).<a href="#section-7.4.2-3" class="pilcrow">¶</a></p>
+derivation graph maps onto the TLS 1.3 graph (<a href="#derivation-graph" class="auto internal xref">Section 16.6.4</a>).<a href="#section-7.4.2-3" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3707,7 +3706,7 @@ imported PSK, <a href="#psk-importer" class="auto internal xref">Section 10</a> 
 but the epsk beneath them is one secret, absorbed under both
 permutations.  Raw external PSK reuse also shares a secret between
 profiles.  A deployment that negotiates TLS13_SHAKE256 to avoid the
-reduced-round premise (<a href="#turboshake-sec" class="auto internal xref">Section 16.10.1</a>) does not gain that separation
+reduced-round premise (<a href="#turboshake-sec" class="auto internal xref">Section 16.9.1</a>) does not gain that separation
 for such a PSK.  A deployment that provisions a separate external PSK
 per KDF, rather than using one under both, has no secret in common
 between them.<a href="#section-16.1-2" class="pilcrow">¶</a></p>
@@ -3760,7 +3759,7 @@ Finished MAC Key (<a href="#exported-authenticators" class="auto internal xref">
 another is adversarial.  This robustness relies on injective framing and
 the random-oracle argument (<a href="#domain-separation" class="auto internal xref">Section 16.8</a>,
 <a href="#cryptographic-analysis" class="auto internal xref">Section 16.6</a>, <span>[<a href="#BINDEL" class="cite xref">BINDEL</a>]</span>), and on the source-secrecy and
-cross-stage simulation conditions left open in <a href="#open-analysis" class="auto internal xref">Section 16.6.4</a>.<a href="#section-16.5-1" class="pilcrow">¶</a></p>
+cross-stage simulation conditions left open in <a href="#open-analysis" class="auto internal xref">Section 16.6.5</a>.<a href="#section-16.5-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="cryptographic-analysis">
@@ -3768,10 +3767,9 @@ cross-stage simulation conditions left open in <a href="#open-analysis" class="a
         <h3 id="name-cryptographic-analysis">
 <a href="#section-16.6" class="section-number selfRef">16.6. </a><a href="#name-cryptographic-analysis" class="section-name selfRef">Cryptographic Analysis</a>
         </h3>
-<p id="section-16.6-1">The per-derivation bound comes from the sponge analysis (<span>[<a href="#BDPV08" class="cite xref">BDPV08</a>]</span>),
-assuming source secrecy and the composition below.  Protocol security
-also depends on erasure and authentication, with proof obligations still
-open (<a href="#open-analysis" class="auto internal xref">Section 16.6.4</a>).<a href="#section-16.6-1" class="pilcrow">¶</a></p>
+<p id="section-16.6-1">The per-derivation bound ultimately comes from the security claim on
+Keccak (<span>[<a href="#KECCAK" class="cite xref">KECCAK</a>]</span>, Section 1.5) and on TurboSHAKE (<span>[<a href="#TURBOSHAKE" class="cite xref">TURBOSHAKE</a>]</span>,
+Section 2), as discussed in <a href="#primitive-assumptions" class="auto internal xref">Section 16.6.2</a>.<a href="#section-16.6-1" class="pilcrow">¶</a></p>
 <div id="threat-model-and-goals">
 <section id="section-16.6.1">
           <h4 id="name-threat-model-and-goals">
@@ -3794,15 +3792,43 @@ when early data is accepted.<a href="#section-16.6.1-1" class="pilcrow">¶</a></
           <h4 id="name-primitive-assumptions">
 <a href="#section-16.6.2" class="section-number selfRef">16.6.2. </a><a href="#name-primitive-assumptions" class="section-name selfRef">Primitive Assumptions</a>
           </h4>
-<p id="section-16.6.2-1">DF is the profile's XOF over a framed byte string, its permutation
-modeled as random (<span>[<a href="#FIPS202" class="cite xref">FIPS202</a>]</span>).  A sponge over such a permutation is
-indifferentiable from a random oracle up to 2^(c/2) of its calls
-(<span>[<a href="#BDPV08" class="cite xref">BDPV08</a>]</span>, Theorem 2 and Section 5), which is 2^256 at the 512-bit
-capacity both profiles use.<a href="#section-16.6.2-1" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-2">The step from sponge to oracle is the indifferentiability composition of
-<span>[<a href="#MRH" class="cite xref">MRH</a>]</span>, which is sound for single-stage games and not in general for
-multi-stage ones (<span>[<a href="#RSS" class="cite xref">RSS</a>]</span>).<a href="#section-16.6.2-2" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-3">Every Derive or DeriveN is a single call DF(S, L) where seq(S) is
+<p id="section-16.6.2-1">DF is the profile's XOF over a framed byte string.  The XOF is claimed
+secure under a flat sponge claim with the claimed capacity equal to the
+capacity of the underlying sponge function (<span>[<a href="#KECCAK" class="cite xref">KECCAK</a>]</span>, Section 1.5, and
+<span>[<a href="#TURBOSHAKE" class="cite xref">TURBOSHAKE</a>]</span>, Section 2), that is, c=512 in the scope of this
+document.  Informally, it means that SHAKE256 and TurboSHAKE256 shall
+offer the same security strength as a random oracle (RO) in all cases
+where the RO offers a strength below 256 bits and a strength of 256 bits
+otherwise.  Saying that a cryptographic function has a security strength
+of s bits means that no attacks exist with complexity N and success
+probability p such that N/p &lt; 2^s <span>[<a href="#MW18" class="cite xref">MW18</a>]</span>.  As for any concrete hash
+function or XOF, the claim excludes weaknesses due to the mere fact that
+the function can be described compactly and can be eﬀiciently executed,
+e.g., the so-called random oracle implementation impossibility <span>[<a href="#MRH" class="cite xref">MRH</a>]</span>,
+as well as properties that cannot be modeled as a single-stage game
+<span>[<a href="#RSS" class="cite xref">RSS</a>]</span>.<a href="#section-16.6.2-1" class="pilcrow">¶</a></p>
+<p id="section-16.6.2-2">The claim is supported by the results of third-party cryptanalysis, of
+which a list of publications is available at <span>[<a href="#KECCAK_CRYPTANALYSIS" class="cite xref">KECCAK_CRYPTANALYSIS</a>]</span>.
+ These results target reduced-round versions of Keccak, and at the time
+of this writing, no such result contradicts the above claim at the
+nominal number of rounds of (Turbo)SHAKE256.<a href="#section-16.6.2-2" class="pilcrow">¶</a></p>
+<p id="section-16.6.2-3">The claim is further supported by the proof of indifferentiability of
+the sponge construction that SHAKE256 and TurboSHAKE256 use.
+ Informally, this proof ensures the absence of generic attacks on a
+sponge function (i.e., attacks that work irrespective of the underlying
+permutation) below a complexity of 2^c/2 <span>[<a href="#BDPV08" class="cite xref">BDPV08</a>]</span>, except for attacks
+whose complexity is already below 2^c/2 on a RO.<a href="#section-16.6.2-3" class="pilcrow">¶</a></p>
+<p id="section-16.6.2-4">In the sequel, we assume that the profile's XOF, and therefore the dec
+engine, is as secure as claimed and discussed above, and therefore
+reason on the usage of the XOF as that of a RO.<a href="#section-16.6.2-4" class="pilcrow">¶</a></p>
+</section>
+</div>
+<div id="primitive-usage">
+<section id="section-16.6.3">
+          <h4 id="name-primitive-usage">
+<a href="#section-16.6.3" class="section-number selfRef">16.6.3. </a><a href="#name-primitive-usage" class="section-name selfRef">Primitive Usage</a>
+          </h4>
+<p id="section-16.6.3-1">Every Derive or DeriveN is a single call DF(S, L) where seq(S) is
 injectively framed (<a href="#domain-separation" class="auto internal xref">Section 16.8</a>), so calls with different
 inputs query the oracle at different points, and the outputs of one
 DeriveN are disjoint slices of one answer.  In the random-oracle game,
@@ -3812,71 +3838,69 @@ secret with h bits of min-entropy conditioned on the adversary's view,
 the chance of such a query is at most q / 2^h in q queries.  For an
 external PSK with 256 bits of min-entropy (<a href="#psk-entropy" class="auto internal xref">Section 16.3</a>), that is
 q / 2^256.  These are bounds in that game, subject to the preceding
-composition step, not bounds for the complete protocol.<a href="#section-16.6.2-3" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-4">If the DeriveN answer is uniform, revealing some slices leaves the
+composition step, not bounds for the complete protocol.<a href="#section-16.6.3-1" class="pilcrow">¶</a></p>
+<p id="section-16.6.3-2">If the DeriveN answer is uniform, revealing some slices leaves the
 others uniform and independent, provided the adversary has not queried
 the secret-bearing input and has learned neither the full output tuple,
 nor a secret the tuple was derived from, nor another name for a target
-slice.  Real outputs are not uniform strings, so carrying this over to
-them needs a joint pseudorandomness assumption, or a completed game and
-simulation, together with their losses (<a href="#open-analysis" class="auto internal xref">Section 16.6.4</a>).<a href="#section-16.6.2-4" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-5">Finished and binder verification require MAC to be unforgeable under a
+slice.<a href="#section-16.6.3-2" class="pilcrow">¶</a></p>
+<p id="section-16.6.3-3">Finished and binder verification require MAC to be unforgeable under a
 chosen-message attack.  Each MAC key is a 64-octet finished_key used for
 MAC and nothing else (<a href="#finished-and-binder-mac" class="auto internal xref">Section 5.5</a>).  The same key may be
 used over several messages, as for a binder recomputed after a
 HelloRetryRequest or for post-handshake Finished messages within one
-traffic generation.<a href="#section-16.6.2-5" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-6">For Exported Authenticators, the MAC key is the 64-octet Finished MAC
+traffic generation.<a href="#section-16.6.3-3" class="pilcrow">¶</a></p>
+<p id="section-16.6.3-4">For Exported Authenticators, the MAC key is the 64-octet Finished MAC
 Key, also used for MAC and nothing else.  The same key can serve
 successive Exported Authenticators on one connection
-(<a href="#exported-authenticators" class="auto internal xref">Section 14.2</a>).<a href="#section-16.6.2-6" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-7">MAC is a Derive (<a href="#mac-op" class="auto internal xref">Section 5.2</a>), so the preceding random-oracle argument
+(<a href="#exported-authenticators" class="auto internal xref">Section 14.2</a>).<a href="#section-16.6.3-4" class="pilcrow">¶</a></p>
+<p id="section-16.6.3-5">MAC is a Derive (<a href="#mac-op" class="auto internal xref">Section 5.2</a>), so the preceding random-oracle argument
 applies.  In that game, a uniform secret unknown to the adversary keys a
 pseudorandom function of the rest of the framed input.  With an L-octet
 output, each verification attempt adds at most 2^(-8L) to the forgery
-probability, in addition to the probability of querying the secret.<a href="#section-16.6.2-7" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-8">The uniformity of finished_key to an adversary depends on that of the
+probability, in addition to the probability of querying the secret.<a href="#section-16.6.3-5" class="pilcrow">¶</a></p>
+<p id="section-16.6.3-6">The uniformity of finished_key to an adversary depends on that of the
 secrets beneath it.  A finished_key derived from a guessable external
-PSK is not uniform to the adversary (<a href="#psk-entropy" class="auto internal xref">Section 16.3</a>).<a href="#section-16.6.2-8" class="pilcrow">¶</a></p>
-<p id="section-16.6.2-9">If the ECH confirmation Derive output (<a href="#ech-generic" class="auto internal xref">Section 5.7</a>) is pseudorandom,
+PSK is not uniform to the adversary (<a href="#psk-entropy" class="auto internal xref">Section 16.3</a>).<a href="#section-16.6.3-6" class="pilcrow">¶</a></p>
+<p id="section-16.6.3-7">If the ECH confirmation Derive output (<a href="#ech-generic" class="auto internal xref">Section 5.7</a>) is pseudorandom,
 a network attacker without ClientHelloInner.random guesses the 8 octets
 with probability at most 2^-64 per attempt, plus its advantage in
-distinguishing the output from random.<a href="#section-16.6.2-9" class="pilcrow">¶</a></p>
+distinguishing the output from random.<a href="#section-16.6.3-7" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="derivation-graph">
-<section id="section-16.6.3">
+<section id="section-16.6.4">
           <h4 id="name-derivation-graph">
-<a href="#section-16.6.3" class="section-number selfRef">16.6.3. </a><a href="#name-derivation-graph" class="section-name selfRef">Derivation Graph</a>
+<a href="#section-16.6.4" class="section-number selfRef">16.6.4. </a><a href="#name-derivation-graph" class="section-name selfRef">Derivation Graph</a>
           </h4>
-<p id="section-16.6.3-1">The stage trunks E, H, and T and the ratchet residues map to TLS 1.3's
+<p id="section-16.6.4-1">The stage trunks E, H, and T and the ratchet residues map to TLS 1.3's
 Early/Handshake/Main Secrets and its unnamed "derived" salt as
 <a href="#stage-secrets" class="auto internal xref">Section 7.4.2</a> sets out.  DeriveN also combines sibling sites into
 one query.  The map is onto rather than one to one: this document
 derives key_block once and slices the record key and IV from it, where
 TLS 1.3 derives each at its own site.  It is structural and does not
-carry the TLS 1.3 proof.<a href="#section-16.6.3-1" class="pilcrow">¶</a></p>
+carry the TLS 1.3 proof.<a href="#section-16.6.4-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="open-analysis">
-<section id="section-16.6.4">
+<section id="section-16.6.5">
           <h4 id="name-what-is-not-yet-established">
-<a href="#section-16.6.4" class="section-number selfRef">16.6.4. </a><a href="#name-what-is-not-yet-established" class="section-name selfRef">What Is Not Yet Established</a>
+<a href="#section-16.6.5" class="section-number selfRef">16.6.5. </a><a href="#name-what-is-not-yet-established" class="section-name selfRef">What Is Not Yet Established</a>
           </h4>
-<p id="section-16.6.4-1">This schedule does not yet have an analysis equivalent to <span>[<a href="#TLS13KS" class="cite xref">TLS13KS</a>]</span>.<a href="#section-16.6.4-1" class="pilcrow">¶</a></p>
-<p id="section-16.6.4-2">The single-stage classification needed for <span>[<a href="#MRH" class="cite xref">MRH</a>]</span>'s composition remains
-unproved (<span>[<a href="#RSS" class="cite xref">RSS</a>]</span>, <a href="#cryptographic-analysis" class="auto internal xref">Section 16.6</a>).<a href="#section-16.6.4-2" class="pilcrow">¶</a></p>
-<p id="section-16.6.4-3"><span>[<a href="#TLS13KS" class="cite xref">TLS13KS</a>]</span> is proved over discrete extract-and-expand nodes, not over
+<p id="section-16.6.5-1">This schedule does not yet have an analysis equivalent to <span>[<a href="#TLS13KS" class="cite xref">TLS13KS</a>]</span>.<a href="#section-16.6.5-1" class="pilcrow">¶</a></p>
+<p id="section-16.6.5-2">The single-stage classification needed for <span>[<a href="#MRH" class="cite xref">MRH</a>]</span>'s composition remains
+unproved (<span>[<a href="#RSS" class="cite xref">RSS</a>]</span>, <a href="#cryptographic-analysis" class="auto internal xref">Section 16.6</a>).<a href="#section-16.6.5-2" class="pilcrow">¶</a></p>
+<p id="section-16.6.5-3"><span>[<a href="#TLS13KS" class="cite xref">TLS13KS</a>]</span> is proved over discrete extract-and-expand nodes, not over
 an accumulator carried across each stage and cloned at its leaves.  The
 cross-stage chaining needs analysis, in particular absorbing the
 asymmetric shared secret into a dec engine seeded with the early
 residue, the step TLS 1.3 performs as an HKDF-Extract salted with the
-early secret's "derived" value.<a href="#section-16.6.4-3" class="pilcrow">¶</a></p>
-<p id="section-16.6.4-4">For DeriveN, that analysis must also cover joint outputs, selective
+early secret's "derived" value.<a href="#section-16.6.5-3" class="pilcrow">¶</a></p>
+<p id="section-16.6.5-4">For DeriveN, that analysis must also cover joint outputs, selective
 disclosure, and the exposure changes caused by materializing and erasing
-output tuples.<a href="#section-16.6.4-4" class="pilcrow">¶</a></p>
-<p id="section-16.6.4-5">Whether the ECH confirmation replacement (<a href="#ech-generic" class="auto internal xref">Section 5.7</a>) keeps every
-property <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> analyzes is not established here.<a href="#section-16.6.4-5" class="pilcrow">¶</a></p>
+output tuples.<a href="#section-16.6.5-4" class="pilcrow">¶</a></p>
+<p id="section-16.6.5-5">Whether the ECH confirmation replacement (<a href="#ech-generic" class="auto internal xref">Section 5.7</a>) keeps every
+property <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> analyzes is not established here.<a href="#section-16.6.5-5" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -3886,7 +3910,7 @@ property <span>[<a href="#RFC9849" class="cite xref">RFC9849</a>]</span> analyze
         <h3 id="name-erasure-boundaries">
 <a href="#section-16.7" class="section-number selfRef">16.7. </a><a href="#name-erasure-boundaries" class="section-name selfRef">Erasure Boundaries</a>
         </h3>
-<p id="section-16.7-1">A sponge accumulator is built on a permutation, and permutations are
+<p id="section-16.7-1">A sponge function is built on a permutation, and permutations are
 invertible.  If the intervening absorbed blocks are known, anyone
 holding a later state can recover the earlier one.  Carrying a raw
 accumulator across a stage boundary would therefore let a post-handshake
@@ -3897,7 +3921,7 @@ state, not the state itself.  In the random-oracle game (<span>[<a href="#MRH" c
 recovering it requires a query on the secret-bearing input.  A boundary
 mixing an asymmetric shared_secret relies instead on the exchange's
 computational hardness and the open chaining analysis
-(<a href="#open-analysis" class="auto internal xref">Section 16.6.4</a>), not on information-theoretic entropy given the
+(<a href="#open-analysis" class="auto internal xref">Section 16.6.5</a>), not on information-theoretic entropy given the
 public key shares.  The early-to-handshake boundary carries only the
 PSK, so its one-wayness depends on the PSK's min-entropy
 (<a href="#psk-entropy" class="auto internal xref">Section 16.3</a>):  a low-entropy external PSK earns no forward secrecy
@@ -3976,51 +4000,31 @@ frame(schedule_label)  = uint16(6) || "tls13 "
 <p id="section-16.8-5">The first octet separates a keyed sequence from the transcript hash.<a href="#section-16.8-5" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="related-constructions">
-<section id="section-16.9">
-        <h3 id="name-related-constructions">
-<a href="#section-16.9" class="section-number selfRef">16.9. </a><a href="#name-related-constructions" class="section-name selfRef">Related Constructions</a>
-        </h3>
-<p id="section-16.9-1">An HKDF schedule over a SHA-3 hash would keep the analysis of
-<span>[<a href="#TLS13KS" class="cite xref">TLS13KS</a>]</span> applicable.  A proof that Derive and DeriveN are jointly
-pseudorandom, over many keys, would discharge the pseudorandomness
-assumptions <span>[<a href="#TLS13KS" class="cite xref">TLS13KS</a>]</span> makes of its expand function and of the MAC
-deriving its binder values, though not its extraction,
-collision-resistance or salted Diffie-Hellman assumptions.  No
-keyed-sponge result reaches this construction as specified.  The
-outer-keyed sponge is Sponge(K || m), the key first, with the analysis
-limited to keys occupying whole rate blocks (<span>[<a href="#KEYEDSPONGE" class="cite xref">KEYEDSPONGE</a>]</span>), where
-this schedule frames schedule_label ahead of a framed secret that does
-not fill a rate block.  Closing this needs a keyed-sponge result that
-tolerates a public prefix and a secret that does not fill a block, or a
-schedule that fits an existing one.<a href="#section-16.9-1" class="pilcrow">¶</a></p>
-</section>
-</div>
 <div id="per-profile-considerations">
-<section id="section-16.10">
+<section id="section-16.9">
         <h3 id="name-per-profile-considerations">
-<a href="#section-16.10" class="section-number selfRef">16.10. </a><a href="#name-per-profile-considerations" class="section-name selfRef">Per-Profile Considerations</a>
+<a href="#section-16.9" class="section-number selfRef">16.9. </a><a href="#name-per-profile-considerations" class="section-name selfRef">Per-Profile Considerations</a>
         </h3>
 <div id="turboshake-sec">
-<section id="section-16.10.1">
+<section id="section-16.9.1">
           <h4 id="name-tls13_turboshake256">
-<a href="#section-16.10.1" class="section-number selfRef">16.10.1. </a><a href="#name-tls13_turboshake256" class="section-name selfRef">TLS13_TURBOSHAKE256</a>
+<a href="#section-16.9.1" class="section-number selfRef">16.9.1. </a><a href="#name-tls13_turboshake256" class="section-name selfRef">TLS13_TURBOSHAKE256</a>
           </h4>
-<p id="section-16.10.1-1">TLS13_TURBOSHAKE256 targets 256-bit security, which <span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, Table 4
+<p id="section-16.9.1-1">TLS13_TURBOSHAKE256 targets 256-bit security, which <span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, Table 4
 claims for TurboSHAKE256 and its 512-bit capacity (<span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, Section
-2.2) supports.  The 12-round assumption remains open.<a href="#section-16.10.1-1" class="pilcrow">¶</a></p>
+2.2) supports.  The 12-round assumption remains open.<a href="#section-16.9.1-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="shake-sec">
-<section id="section-16.10.2">
+<section id="section-16.9.2">
           <h4 id="name-tls13_shake256">
-<a href="#section-16.10.2" class="section-number selfRef">16.10.2. </a><a href="#name-tls13_shake256" class="section-name selfRef">TLS13_SHAKE256</a>
+<a href="#section-16.9.2" class="section-number selfRef">16.9.2. </a><a href="#name-tls13_shake256" class="section-name selfRef">TLS13_SHAKE256</a>
           </h4>
-<p id="section-16.10.2-1">TLS13_SHAKE256 uses SHAKE256's Keccak-f[1600] in place of
+<p id="section-16.9.2-1">TLS13_SHAKE256 uses SHAKE256's Keccak-f[1600] in place of
 TurboSHAKE256's Keccak-p[1600,12] (<a href="#shake-instantiation" class="auto internal xref">Section 9.1</a>), so it
 carries no reduced-round assumption.  Its full 24-round permutation
 supports the same 256-bit target with a larger round margin
-(<a href="#shake-profile" class="auto internal xref">Section 9</a>).<a href="#section-16.10.2-1" class="pilcrow">¶</a></p>
+(<a href="#shake-profile" class="auto internal xref">Section 9</a>).<a href="#section-16.9.2-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
@@ -4119,9 +4123,29 @@ supports the same 256-bit target with a larger round margin
         <dd>
 <span class="refAuthor">Stebila, D.</span>, <span class="refAuthor">Fluhrer, S.</span>, and <span class="refAuthor">S. Gueron</span>, <span class="refTitle">"Hybrid Key Exchange in TLS 1.3"</span>, <span class="seriesInfo">RFC 9954</span>, <span class="seriesInfo">DOI 10.17487/RFC9954</span>, <time datetime="2026-07" class="refDate">July 2026</time>, <span>&lt;<a href="https://www.rfc-editor.org/info/rfc9954">https://www.rfc-editor.org/info/rfc9954</a>&gt;</span>. </dd>
 <dd class="break"></dd>
+<dt id="KECCAK">[KECCAK]</dt>
+        <dd>
+<span class="refAuthor">Bertoni, G.</span>, <span class="refAuthor">Daemen, J.</span>, <span class="refAuthor">Peeters, M.</span>, and <span class="refAuthor">G. Van Assche</span>, <span class="refTitle">"The Keccak reference"</span>, <time datetime="2011" class="refDate">2011</time>, <span>&lt;<a href="https://keccak.team/files/Keccak-reference-3.0.pdf">https://keccak.team/files/Keccak-reference-3.0.pdf</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="TURBOSHAKE">[TURBOSHAKE]</dt>
+        <dd>
+<span class="refAuthor">Bertoni, G.</span>, <span class="refAuthor">Daemen, J.</span>, <span class="refAuthor">Hoffert, S.</span>, <span class="refAuthor">Peeters, M.</span>, <span class="refAuthor">Van Assche, G.</span>, <span class="refAuthor">Van Keer, R.</span>, and <span class="refAuthor">B. Viguier</span>, <span class="refTitle">"TurboSHAKE"</span>, <time datetime="2023" class="refDate">2023</time>, <span>&lt;<a href="https://eprint.iacr.org/2023/342">https://eprint.iacr.org/2023/342</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="KECCAK_CRYPTANALYSIS">[KECCAK_CRYPTANALYSIS]</dt>
+        <dd>
+<span class="refTitle">"Third-Party Cryptanalysis"</span>, <time datetime="2026" class="refDate">2026</time>, <span>&lt;<a href="https://www.keccak.team/third_party.html">https://www.keccak.team/third_party.html</a>&gt;</span>. </dd>
+<dd class="break"></dd>
 <dt id="BDPV08">[BDPV08]</dt>
         <dd>
 <span class="refAuthor">Bertoni, G.</span>, <span class="refAuthor">Daemen, J.</span>, <span class="refAuthor">Peeters, M.</span>, and <span class="refAuthor">G. Van Assche</span>, <span class="refTitle">"On the Indifferentiability of the Sponge Construction"</span>, <span class="seriesInfo">EUROCRYPT 2008, LNCS 4965, pp. 181-197</span>, <span class="seriesInfo">DOI 10.1007/978-3-540-78967-3_11</span>, <time datetime="2008" class="refDate">2008</time>, <span>&lt;<a href="https://keccak.team/files/SpongeIndifferentiability.pdf">https://keccak.team/files/SpongeIndifferentiability.pdf</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="DHMVAVK25">[DHMVAVK25]</dt>
+        <dd>
+<span class="refAuthor">Daemen, J.</span>, <span class="refAuthor">Hoffert, S.</span>, <span class="refAuthor">Mella, S.</span>, <span class="refAuthor">Van Assche, G.</span>, and <span class="refAuthor">R. Van Keer</span>, <span class="refTitle">"Shaking up authenticated encryption"</span>, <span class="seriesInfo">EuroS&amp;P 2025, pp. 861-882</span>, <span class="seriesInfo">DOI 10.1109/EUROSP63326.2025.00054</span>, <time datetime="2025" class="refDate">2025</time>, <span>&lt;<a href="https://doi.org/10.1109/EuroSP63326.2025.00054">https://doi.org/10.1109/EuroSP63326.2025.00054</a>&gt;</span>. </dd>
+<dd class="break"></dd>
+<dt id="MW18">[MW18]</dt>
+        <dd>
+<span class="refAuthor">Micciancio, D.</span> and <span class="refAuthor">M. Walter</span>, <span class="refTitle">"On the Bit Security of Cryptographic Primitives"</span>, <span class="seriesInfo">EUROCRYPT 2018, LNCS 10820, pp. 3-28</span>, <span class="seriesInfo">DOI 10.1007/978-3-319-78381-9_1</span>, <span>n.d.</span>, <span>&lt;<a href="https://doi.org/10.1007/978-3-319-78381-9_1">https://doi.org/10.1007/978-3-319-78381-9_1</a>&gt;</span>. </dd>
 <dd class="break"></dd>
 <dt id="XOODYAK">[XOODYAK]</dt>
         <dd>
