@@ -121,7 +121,7 @@ informative:
     seriesinfo:
       "EUROCRYPT": "2008, LNCS 4965, pp. 181-197"
       DOI: 10.1007/978-3-540-78967-3_11
-  DHMVAVK25:
+  DHMVV25:
     target: https://doi.org/10.1109/EuroSP63326.2025.00054
     title: "Shaking up authenticated encryption"
     author:
@@ -2060,7 +2060,9 @@ cross-stage simulation conditions left open in {{open-analysis}}.
 
 The per-derivation bound ultimately comes from the security claim on
 Keccak ({{KECCAK}}, Section 1.5) and on TurboSHAKE ({{TURBOSHAKE}},
-Section 2), as discussed in {{primitive-assumptions}}.
+Section 2), as discussed in {{primitive-assumptions}}. Protocol security
+also depends on erasure and authentication, with proof obligations still
+open ({{open-analysis}}).
 
 ### Threat Model and Goals
 
@@ -2103,8 +2105,8 @@ The claim is further supported by the proof of indifferentiability of
 the sponge construction that SHAKE256 and TurboSHAKE256 use.
  Informally, this proof ensures the absence of generic attacks on a
 sponge function (i.e., attacks that work irrespective of the underlying
-permutation) below a complexity of 2^c/2 {{BDPV08}}, except for attacks
-whose complexity is already below 2^c/2 on a RO.
+permutation) below a complexity of 2^(c/2) {{BDPV08}}, except for
+attacks whose complexity is already below 2^(c/2) on a RO.
 
 In the sequel, we assume that the profile's XOF, and therefore the dec
 engine, is as secure as claimed and discussed above, and therefore
@@ -2171,19 +2173,15 @@ carry the TLS 1.3 proof.
 
 This schedule does not yet have an analysis equivalent to {{TLS13KS}}.
 
-The single-stage classification needed for {{MRH}}'s composition remains
-unproved ({{RSS}}, {{cryptographic-analysis}}).
-
 {{TLS13KS}} is proved over discrete extract-and-expand nodes, not over
 an accumulator carried across each stage and cloned at its leaves.  The
 cross-stage chaining needs analysis, in particular absorbing the
 asymmetric shared secret into a dec engine seeded with the early
 residue, the step TLS 1.3 performs as an HKDF-Extract salted with the
-early secret's "derived" value.
-
-For DeriveN, that analysis must also cover joint outputs, selective
-disclosure, and the exposure changes caused by materializing and erasing
-output tuples.
+early secret's "derived" value.  The reasoning in Section 6.4 of
+{{DHMVV25}} can be followed to cover derivations keyed directly by an
+independent PSK, but not the shared secret or secrets chained from
+earlier stages.
 
 Whether the ECH confirmation replacement ({{ech-generic}}) keeps every
 property {{RFC9849}} analyzes is not established here.
