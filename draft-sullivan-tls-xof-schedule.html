@@ -4022,7 +4022,7 @@ frame(schedule_label)  = uint16(6) || "tls13 "
           </h4>
 <p id="section-16.9.1-1">TLS13_TURBOSHAKE256 targets 256-bit security, which <span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, Table 4
 claims for TurboSHAKE256 and its 512-bit capacity (<span>[<a href="#RFC9861" class="cite xref">RFC9861</a>]</span>, Section
-2.2) supports.  The 12-round assumption remains open.<a href="#section-16.9.1-1" class="pilcrow">¶</a></p>
+2.2) supports.<a href="#section-16.9.1-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="shake-sec">
@@ -4031,10 +4031,9 @@ claims for TurboSHAKE256 and its 512-bit capacity (<span>[<a href="#RFC9861" cla
 <a href="#section-16.9.2" class="section-number selfRef">16.9.2. </a><a href="#name-tls13_shake256" class="section-name selfRef">TLS13_SHAKE256</a>
           </h4>
 <p id="section-16.9.2-1">TLS13_SHAKE256 uses SHAKE256's Keccak-f[1600] in place of
-TurboSHAKE256's Keccak-p[1600,12] (<a href="#shake-instantiation" class="auto internal xref">Section 9.1</a>), so it
-carries no reduced-round assumption.  Its full 24-round permutation
-supports the same 256-bit target with a larger round margin
-(<a href="#shake-profile" class="auto internal xref">Section 9</a>).<a href="#section-16.9.2-1" class="pilcrow">¶</a></p>
+TurboSHAKE256's Keccak-p[1600,12] (<a href="#shake-instantiation" class="auto internal xref">Section 9.1</a>).  Its full
+24-round permutation supports the same 256-bit target with a larger
+round margin (<a href="#shake-profile" class="auto internal xref">Section 9</a>).<a href="#section-16.9.2-1" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>

@@ -2234,14 +2234,14 @@ value = Derive(D, label, [context], [L])
 
    TLS13_TURBOSHAKE256 targets 256-bit security, which [RFC9861],
    Table 4 claims for TurboSHAKE256 and its 512-bit capacity ([RFC9861],
-   Section 2.2) supports.  The 12-round assumption remains open.
+   Section 2.2) supports.
 
 16.9.2.  TLS13_SHAKE256
 
    TLS13_SHAKE256 uses SHAKE256's Keccak-f[1600] in place of
-   TurboSHAKE256's Keccak-p[1600,12] (Section 9.1), so it carries no
-   reduced-round assumption.  Its full 24-round permutation supports the
-   same 256-bit target with a larger round margin (Section 9).
+   TurboSHAKE256's Keccak-p[1600,12] (Section 9.1).  Its full 24-round
+   permutation supports the same 256-bit target with a larger round
+   margin (Section 9).
 
 17.  References
 
