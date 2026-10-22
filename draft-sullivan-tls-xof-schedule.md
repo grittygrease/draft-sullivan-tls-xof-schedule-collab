@@ -2285,15 +2285,14 @@ The first octet separates a keyed sequence from the transcript hash.
 
 TLS13_TURBOSHAKE256 targets 256-bit security, which {{RFC9861}}, Table 4
 claims for TurboSHAKE256 and its 512-bit capacity ({{RFC9861}}, Section
-2.2) supports.  The 12-round assumption remains open.
+2.2) supports.
 
 ### TLS13_SHAKE256 {#shake-sec}
 
 TLS13_SHAKE256 uses SHAKE256's Keccak-f\[1600\] in place of
-TurboSHAKE256's Keccak-p\[1600,12\] ({{shake-instantiation}}), so it
-carries no reduced-round assumption.  Its full 24-round permutation
-supports the same 256-bit target with a larger round margin
-({{shake-profile}}).
+TurboSHAKE256's Keccak-p\[1600,12\] ({{shake-instantiation}}).  Its full
+24-round permutation supports the same 256-bit target with a larger
+round margin ({{shake-profile}}).
 
 --- back
 
