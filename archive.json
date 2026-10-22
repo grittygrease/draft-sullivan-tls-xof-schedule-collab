@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-10-20T00:11:41.695124+00:00",
+  "timestamp": "2026-10-22T00:10:21.980729+00:00",
   "repo": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
   "labels": [
     {
@@ -65,9 +65,9 @@
       "authorAssociation": "OWNER",
       "assignees": [],
       "labels": [],
-      "body": "This is the coordination thread for the next revision of draft-sullivan-tls-xof-schedule. Proposed review leads below are invitations to divide the work, not commitments already agreed.\n\nTarget: a reviewable revision by **30 October 2026**, for the **2 November 2026, 23:59 UTC** IETF 127 Internet-Draft cutoff ([official dates](https://datatracker.ietf.org/meeting/important-dates/)).\n\n## 1. Terminology and security argument \u2014 proposed lead: Gilles, with Markku\n- [ ] Resolve John's 31 July objection: the literature's deck function is keyed, while the current definition says the underlying XOF has no key parameter and takes secrets as framed inputs. Should we rename this interface, define a keyed abstraction explicitly, or explain a precise relationship? Make the glossary, interface and security claims consistent.\n- [ ] Check the reduction for this actual construction, including the public prefix, framed secrets, branching and ratchet chain. Distinguish ideal-permutation/indifferentiability reasoning from assumptions about concrete SHAKE/TurboSHAKE.\n- [ ] Revise the 12-versus-24-round discussion using the Keccak team's 27 July explanation and the appropriate cryptanalysis references; record what remains unproved.\n\n## 2. TLS semantics, framing and state lifecycle \u2014 proposed leads: Markku and Nick, with Gilles on cryptographic implications\n- [ ] Triage Ilari's 24 July review point by point: absent versus empty input / frame(NULL), explicit ctag, the \"th\" and \"out\" tags, 48-versus-64-byte transcripts and block boundaries, and SHAKE versus cSHAKE contextualization.\n- [ ] Resolve exporter subkeying: the current text still has one Derive with hashed label and context. Decide whether to restore the two-stage property or explicitly justify a semantic change.\n- [ ] Specify hybrid secret input handling without assuming TLS implementations expose component secrets.\n- [ ] Align Ratchet pseudocode, prose, diagrams and vectors; make retirement/erasure and any Destroy operation precise. Distinguish the named Ratchet operation from the one-way property of traffic-key updates.\n- [ ] Shorten redundant text after the decisions above.\n\n## 3. Finished/binder MAC and overwrite-duplex decisions \u2014 proposed lead: Gilles, with Markku\n- [ ] Evaluate direct Derive for Finished/binders against the required MAC security properties. Retain the current dedicated MAC/two-layer structure unless a justified change is agreed; a generic XOF property alone is not the conclusion.\n- [ ] Evaluate overwrite-duplex versus the present one-shot construction, including reduction, state size, library APIs, and long/low-entropy secret absorption without exposing intermediate outputs. Record whether this belongs in this revision or later.\n- [ ] Keep a Keccak AEAD in a separate document. Revisit a generic standalone schedule/deck document only after another protocol case study, as discussed on 31 July.\n\n## 4. Implementation, vectors and performance \u2014 proposed lead: Markku\n- [ ] Bring altkdf-rs and independent checks to the four-operation, separately negotiated schedule; the July implementation used the older five-operation / cipher-suite design.\n- [ ] Publish a reproducible vector snapshot for both profiles, with exact revision and parameters, covering PSK, key exchange, resumption, exporters and KeyUpdate.\n- [ ] Recompute permutation counts from the specified bytes and a common workload, separating cached and recomputed paths and stating transcript-hash exclusions. The current draft quotes 39; do not carry older counts across versions without reproducing them.\n- [ ] Assess concrete software and RISC-V hardware implications, keeping structural savings distinct from primitive speed.\n\n## 5. Analysis and list follow-up \u2014 proposed lead: Nick\n- [ ] Agree the properties and model updates to request from Nadim: current negotiation and four-operation semantics, concurrent legacy/new schedules, profile separation, erasure/forward-secrecy claims and hybrid input semantics. Symbolic results do not settle the concrete permutation or reduced-round MAC questions.\n- [ ] Produce a proposed disposition and a TLS-list reply for each open review thread, reflecting the co-authors' decisions.\n- [ ] Collect author details, integrate agreed edits, regenerate vectors/figures, build and review the draft, and prepare submission.\n- [ ] Decide whether a short co-author call would help agree scope and divide these items.\n\nSource discussions: TLS list, 24\u201331 July 2026, under the xof-schedule-00 announcement and earlier xof-ciphers-00 thread. In particular: [Ilari's performance comparison](https://mailarchive.ietf.org/arch/msg/tls/vWlm-eN-lmt62Ue2sS0vjQ3mWPw) and [MAC condition](https://mailarchive.ietf.org/arch/msg/tls/Xf2r1S5n-a-ORA5KgM3oAUcXltE).\n\nStarting snapshot verified on 10 October: main is the sole branch/tag ref and commit 359f58e54ff08ceef96e97051f28cf13b8c5e137 has no parents.",
+      "body": "This is the coordination thread for the next revision of draft-sullivan-tls-xof-schedule. Proposed review leads below are invitations to divide the work, not commitments already agreed.\n\nTarget: a reviewable revision by **30 October 2026**, for the **2 November 2026, 23:59 UTC** IETF 127 Internet-Draft cutoff ([official dates](https://datatracker.ietf.org/meeting/important-dates/)).\n\n## 1. Terminology and security argument \u2014 proposed lead: Gilles, with Markku\n- [x] Resolve John's 31 July objection: the literature's deck function is keyed, while the current definition says the underlying XOF has no key parameter and takes secrets as framed inputs. Should we rename this interface, define a keyed abstraction explicitly, or explain a precise relationship? Make the glossary, interface and security claims consistent. Done in #8: the interface is now the unkeyed dec engine.\n- [x] Check the reduction for this actual construction, including the public prefix, framed secrets, branching and ratchet chain. Distinguish ideal-permutation/indifferentiability reasoning from assumptions about concrete SHAKE/TurboSHAKE. Done for -01: the security claim is the primary assumption (#11), and the chaining analysis stays listed in What Is Not Yet Established.\n- [x] Revise the 12-versus-24-round discussion using the Keccak team's 27 July explanation and the appropriate cryptanalysis references; record what remains unproved. Done: Per-Profile Considerations records that the 12-round assumption remains open.\n\n## 2. TLS semantics, framing and state lifecycle \u2014 proposed leads: Markku and Nick, with Gilles on cryptographic implications\n- [x] Triage Ilari's 24 July review point by point: absent versus empty input / frame(NULL), explicit ctag, the \"th\" and \"out\" tags, 48-versus-64-byte transcripts and block boundaries, and SHAKE versus cSHAKE contextualization. Done: Absent and Empty Inputs, explicit ctag and \"out\" tags, 64-octet transcripts.\n- [x] Resolve exporter subkeying: the current text still has one Derive with hashed label and context. Decide whether to restore the two-stage property or explicitly justify a semantic change. Done: two-stage exporter derivation (\"exl\", then \"exp\"), see Exporters.\n- [ ] Specify hybrid secret input handling without assuming TLS implementations expose component secrets. Open: -01 absorbs each component separately. Ilari's objection that implementations may not know a group is hybrid still needs a reply.\n- [x] Align Ratchet pseudocode, prose, diagrams and vectors; make retirement/erasure and any Destroy operation precise. Distinguish the named Ratchet operation from the one-way property of traffic-key updates. Done: see Erasure Boundaries.\n- [x] Shorten redundant text after the decisions above. Done for -01 (#6, #9).\n\n## 3. Finished/binder MAC and scope \u2014 proposed lead: Gilles, with Markku\n- [x] Evaluate direct Derive for Finished/binders against the required MAC security properties. Retain the current dedicated MAC/two-layer structure unless a justified change is agreed; a generic XOF property alone is not the conclusion. Done in #2: MAC is a Derive.\n- [x] Keep a Keccak AEAD in a separate document. Revisit a generic standalone schedule/deck document only after another protocol case study, as discussed on 31 July. Done: not in this draft.\n\n## 4. Vectors and counts \u2014 proposed lead: Markku\n- [x] Publish a reproducible vector snapshot for both profiles, with exact revision and parameters, covering PSK, key exchange, resumption, exporters and KeyUpdate. Done: the Test Vectors appendix, checked by make vectors-check.\n- [x] Recompute permutation counts from the specified bytes and a common workload, separating cached and recomputed paths and stating transcript-hash exclusions. The current draft quotes 39; do not carry older counts across versions without reproducing them. Done: 23 permutation calls per handshake, checked by make check.\n\n## 5. Submission \u2014 proposed lead: Nick\n- [ ] Collect author details, integrate agreed edits, regenerate vectors/figures, build and review the draft, and prepare submission.\n\nScope: this issue now tracks draft changes only. Implementation, analysis requests and list replies are handled by email and on the TLS list.\n\nSource discussions: TLS list, 24\u201331 July 2026, under the xof-schedule-00 announcement and earlier xof-ciphers-00 thread. In particular: [Ilari's performance comparison](https://mailarchive.ietf.org/arch/msg/tls/vWlm-eN-lmt62Ue2sS0vjQ3mWPw) and [MAC condition](https://mailarchive.ietf.org/arch/msg/tls/Xf2r1S5n-a-ORA5KgM3oAUcXltE).\n\nStarting snapshot verified on 10 October: main is the sole branch/tag ref and commit 359f58e54ff08ceef96e97051f28cf13b8c5e137 has no parents.\n\n",
       "createdAt": "2026-10-10T12:46:05Z",
-      "updatedAt": "2026-10-10T12:46:05Z",
+      "updatedAt": "2026-10-21T11:14:58Z",
       "closedAt": null,
       "comments": []
     }
@@ -310,6 +310,146 @@
       "mergeCommit": {
         "oid": "8151f0036433c589186bbe871819376b3991adb4"
       },
+      "comments": [],
+      "reviews": []
+    },
+    {
+      "number": 10,
+      "id": "PR_kwDOU5ht5s8AAAABJlsBmg",
+      "title": "Check vectors and handshakes against a patched TLS stack and an independent implementation",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-xof-schedule-collab/pull/10",
+      "state": "MERGED",
+      "author": "grittygrease",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "vectors-check adds the patched TLS stack and the independent implementation when set up with tools/stack/setup.sh. check-stack runs both XOF profiles through TLS 1.3 handshakes, interop in both directions, fallback against a stock server, and BoGo against the unpatched baseline. CI runs both.",
+      "createdAt": "2026-10-20T15:51:42Z",
+      "updatedAt": "2026-10-21T09:27:25Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "baseRefName": "main",
+      "baseRefOid": "8151f0036433c589186bbe871819376b3991adb4",
+      "headRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "headRefName": "stack-checks",
+      "headRefOid": "afbedaedf116e720a2fe93cf9554904d2be653ee",
+      "closedAt": "2026-10-21T09:27:25Z",
+      "mergedAt": "2026-10-21T09:27:25Z",
+      "mergedBy": "grittygrease",
+      "mergeCommit": {
+        "oid": "5fe6c8feededf9cdda197c54da9955e217923afb"
+      },
+      "comments": [
+        {
+          "author": "mjosaarinen",
+          "authorAssociation": "COLLABORATOR",
+          "body": "LGTM! Pinning the public altkdf-rs commit rather than copying the code is preferable.\r\n\r\nChecked the integration and confirmed that the pinned Rust revision still reproduces all 162 current appendix values. Thanks for adding the cross-stack tests.",
+          "createdAt": "2026-10-20T20:35:53Z",
+          "updatedAt": "2026-10-20T20:35:53Z"
+        }
+      ],
+      "reviews": []
+    },
+    {
+      "number": 11,
+      "id": "PR_kwDOU5ht5s8AAAABJmElRw",
+      "title": "Work on the security considerations",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-xof-schedule-collab/pull/11",
+      "state": "MERGED",
+      "author": "gvanas",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "The main change is a rewrite of the section \"Primitive Assumptions\" to put Keccak/TurboSHAKE's security claim as the primary assumption.",
+      "createdAt": "2026-10-20T16:21:33Z",
+      "updatedAt": "2026-10-21T09:27:55Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "baseRefName": "main",
+      "baseRefOid": "8151f0036433c589186bbe871819376b3991adb4",
+      "headRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "headRefName": "security",
+      "headRefOid": "93092a5cb580f102253d4eb8b7206b9b284e1f58",
+      "closedAt": "2026-10-21T09:27:55Z",
+      "mergedAt": "2026-10-21T09:27:55Z",
+      "mergedBy": "grittygrease",
+      "mergeCommit": {
+        "oid": "b6b5e2031922df4d47cb6a935c33429c4d294aa3"
+      },
+      "comments": [
+        {
+          "author": "mjosaarinen",
+          "authorAssociation": "COLLABORATOR",
+          "body": "Looks very sensible (with the broader caveats mentioned by Nick.) The text has 2^c/2 in couple of places rather than 2^(c/2).",
+          "createdAt": "2026-10-20T20:42:37Z",
+          "updatedAt": "2026-10-20T20:42:37Z"
+        }
+      ],
+      "reviews": []
+    },
+    {
+      "number": 12,
+      "id": "PR_kwDOU5ht5s8AAAABJyqiEQ",
+      "title": "Correct and refine some security considerations",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-xof-schedule-collab/pull/12",
+      "state": "MERGED",
+      "author": "gvanas",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [],
+      "labels": [],
+      "body": "I made some small changes following our discussions.",
+      "createdAt": "2026-10-21T13:07:27Z",
+      "updatedAt": "2026-10-21T15:23:16Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "baseRefName": "main",
+      "baseRefOid": "b6b5e2031922df4d47cb6a935c33429c4d294aa3",
+      "headRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "headRefName": "security",
+      "headRefOid": "924223380cb92232785227cf66a09916d089be59",
+      "closedAt": "2026-10-21T15:23:15Z",
+      "mergedAt": "2026-10-21T15:23:15Z",
+      "mergedBy": "grittygrease",
+      "mergeCommit": {
+        "oid": "70a0e8f0e47a115735790602f3ffb961ea81b677"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOU5ht5s8AAAABTefpNQ",
+          "commit": {
+            "abbreviatedOid": "9242233"
+          },
+          "author": "grittygrease",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-10-21T15:21:16Z",
+          "updatedAt": "2026-10-21T15:21:16Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 13,
+      "id": "PR_kwDOU5ht5s8AAAABJ0g_8w",
+      "title": "Name the key-exchange assumption and tighten the security text",
+      "url": "https://github.com/grittygrease/draft-sullivan-tls-xof-schedule-collab/pull/13",
+      "state": "OPEN",
+      "author": "grittygrease",
+      "authorAssociation": "OWNER",
+      "assignees": [],
+      "labels": [],
+      "body": "Follow-up to #12. Adds the key-exchange assumption and covers residues in What Is Not Yet Established, fixes \"the same XOF\" from #8, fixes errors in the security text from #11, states the hybrid argument (Bindel et al., Section 3.2), and attributes only the adversary, not the goals, to TLS13KS. It also points DHMVV25 and MW18 at the ePrint copies the cited section and definitions come from, fixes three typos, and says min-entropy in PSK Entropy. No wire change.\n\nPrompted by Gilles's #11 and #12 and our discussion of them, and Thom's review of -00 on the TLS list (8 Jul) on what TLS13KS covers.\n",
+      "createdAt": "2026-10-21T15:23:00Z",
+      "updatedAt": "2026-10-21T15:56:59Z",
+      "baseRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "baseRefName": "main",
+      "baseRefOid": "70a0e8f0e47a115735790602f3ffb961ea81b677",
+      "headRepository": "grittygrease/draft-sullivan-tls-xof-schedule-collab",
+      "headRefName": "security-followup",
+      "headRefOid": "dc7ba11529cf507bb42a62174027c7511a42d426",
+      "closedAt": null,
+      "mergedAt": null,
+      "mergedBy": null,
+      "mergeCommit": null,
       "comments": [],
       "reviews": []
     }
