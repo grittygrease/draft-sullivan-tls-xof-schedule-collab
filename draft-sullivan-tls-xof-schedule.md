@@ -2001,11 +2001,10 @@ An external PSK used under both profiles is the exception.  For an
 imported PSK, {{psk-importer}} requires a separate ipsk per target_kdf,
 but the epsk beneath them is one secret, absorbed under both
 permutations.  Raw external PSK reuse also shares a secret between
-profiles.  A deployment that negotiates TLS13_SHAKE256 to avoid the
-reduced-round premise ({{turboshake-sec}}) does not gain that separation
-for such a PSK.  A deployment that provisions a separate external PSK
-per KDF, rather than using one under both, has no secret in common
-between them.
+profiles.  A deployment that negotiates TLS13_SHAKE256 for its larger
+round margin ({{shake-sec}}) does not gain that separation for such a
+PSK.  A deployment that provisions a separate external PSK per KDF,
+rather than using one under both, has no secret in common between them.
 
 ## Downgrade Resistance {#downgrade-resistance}
 
