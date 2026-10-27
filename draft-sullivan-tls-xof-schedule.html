@@ -1063,7 +1063,7 @@ svg {
 </tr></thead>
 <tfoot><tr>
 <td class="left">Sullivan, et al.</td>
-<td class="center">Expires 25 April 2027</td>
+<td class="center">Expires 30 April 2027</td>
 <td class="right">[Page]</td>
 </tr></tfoot>
 </table>
@@ -1079,12 +1079,12 @@ svg {
 <a href="https://www.rfc-editor.org/rfc/rfc9147" class="eref">9147</a>, <a href="https://www.rfc-editor.org/rfc/rfc9258" class="eref">9258</a>, <a href="https://www.rfc-editor.org/rfc/rfc9261" class="eref">9261</a>, <a href="https://www.rfc-editor.org/rfc/rfc9849" class="eref">9849</a> (if approved)</dd>
 <dt class="label-published">Published:</dt>
 <dd class="published">
-<time datetime="2026-10-22" class="published">22 October 2026</time>
+<time datetime="2026-10-27" class="published">27 October 2026</time>
     </dd>
 <dt class="label-intended-status">Intended Status:</dt>
 <dd class="intended-status">Standards Track</dd>
 <dt class="label-expires">Expires:</dt>
-<dd class="expires"><time datetime="2027-04-25">25 April 2027</time></dd>
+<dd class="expires"><time datetime="2027-04-30">30 April 2027</time></dd>
 <dt class="label-authors">Authors:</dt>
 <dd class="authors">
 <div class="author">
@@ -1145,7 +1145,7 @@ the reduced-round TurboSHAKE256.  This document updates RFC 9147, RFC
         time. It is inappropriate to use Internet-Drafts as reference
         material or to cite them other than as "work in progress."<a href="#section-boilerplate.1-3" class="pilcrow">¶</a></p>
 <p id="section-boilerplate.1-4">
-        This Internet-Draft will expire on 25 April 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
+        This Internet-Draft will expire on 30 April 2027.<a href="#section-boilerplate.1-4" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="copyright">
@@ -3705,11 +3705,10 @@ adversary (<a href="#cryptographic-analysis" class="auto internal xref">Section 
 imported PSK, <a href="#psk-importer" class="auto internal xref">Section 10</a> requires a separate ipsk per target_kdf,
 but the epsk beneath them is one secret, absorbed under both
 permutations.  Raw external PSK reuse also shares a secret between
-profiles.  A deployment that negotiates TLS13_SHAKE256 to avoid the
-reduced-round premise (<a href="#turboshake-sec" class="auto internal xref">Section 16.9.1</a>) does not gain that separation
-for such a PSK.  A deployment that provisions a separate external PSK
-per KDF, rather than using one under both, has no secret in common
-between them.<a href="#section-16.1-2" class="pilcrow">¶</a></p>
+profiles.  A deployment that negotiates TLS13_SHAKE256 for its larger
+round margin (<a href="#shake-sec" class="auto internal xref">Section 16.9.2</a>) does not gain that separation for such a
+PSK.  A deployment that provisions a separate external PSK per KDF,
+rather than using one under both, has no secret in common between them.<a href="#section-16.1-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 <div id="downgrade-resistance">
